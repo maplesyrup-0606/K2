@@ -1,0 +1,34 @@
+# Secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Tooling / editors
+**/.claude
+**/.vscode
+**/.idea
+**/.DS_Store
+
+# Python
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.venv
+**/venv
+**/*.egg-info
+
+# Frontend
+**/node_modules
+**/dist
+**/build
+**/.vite
+
+# Logs
+**/*.log
+
+# Local SQLite DB (schema lives in migrations/)
+**/*.db
+**/*.db-journal
+
+# Uploaded media (local dev only)
+**/media/
