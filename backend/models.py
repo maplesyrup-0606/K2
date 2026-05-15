@@ -61,6 +61,9 @@ class Post(db.Model):
     notes = db.Column(db.Text)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
 
+    # relations
+    user = db.relationship('User', backref='posts')
+    project = db.relationship('Project', backref='posts')
 
 class Project(db.Model):
     __tablename__ = 'projects'
