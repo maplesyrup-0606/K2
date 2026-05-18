@@ -78,7 +78,7 @@ export default function App() {
             ) : !me.is_onboarded ? (
               <Navigate to="/onboarding" replace />
             ) : (
-              <Profile currentUser={me} />
+              <Profile currentUser={me} onLogout={refresh} />
             )
           }
         />

@@ -10,7 +10,8 @@ from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timezone, timedelta
 from PIL import Image, UnidentifiedImageError
 from functools import wraps
-import os, re, secrets, uuid, requests
+import os, re, secrets, uuid, smtplib
+from email.mime.text import MIMEText
 
 
 load_dotenv()
@@ -84,8 +85,9 @@ def list_invites():
     }
 
 def send_invite_email(to_email):
-    api_key = os.getenv('RESEND_API_KEY')
-    if not api_key:
+    password = os.getenv('GMAIL_APP_PASSWORD')
+    if not password:
+        print('[email] skipped — GMAIL_APP_PASSWORD not set')
         return
     app_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
     html = f"""
@@ -96,20 +98,19 @@ def send_invite_email(to_email):
       <a href="{app_url}/install" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Get started →</a>
     </div>
     """
+    msg = MIMEText(html, 'html')
+    msg['Subject'] = "You've been invited to K2"
+    msg['From'] = 'K2 <mercurymcindoe@gmail.com>'
+    msg['To'] = to_email
     try:
-        requests.post(
-            'https://api.resend.com/emails',
-            headers={'Authorization': f'Bearer {api_key}'},
-            json={
-                'from': 'K2 <onboarding@resend.dev>',
-                'to': to_email,
-                'subject': "You've been invited to K2",
-                'html': html,
-            },
-            timeout=10,
-        )
+        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login('mercurymcindoe@gmail.com', password)
+            smtp.sendmail('mercurymcindoe@gmail.com', to_email, msg.as_string())
+        print(f'[email] sent to {to_email}')
     except Exception as e:
-        app.logger.error(f'Failed to send invite email to {to_email}: {e}')
+        print(f'[email] failed to send to {to_email}: {e}')
 
 
 

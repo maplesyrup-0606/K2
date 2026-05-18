@@ -18,7 +18,7 @@ Invite-only — only emails on an allowlist can sign in. Admins manage the allow
 - Dark mode (manual toggle + system preference)
 - Mobile-first with bottom-tab navigation
 - PWA — installable as a native app on iOS, Android, and desktop
-- Invite emails via Resend with install instructions
+- Invite emails sent via Gmail when a new user is added
 
 ---
 
@@ -31,7 +31,7 @@ Invite-only — only emails on an allowlist can sign in. Admins manage the allow
 | Database | SQLite |
 | Auth | Google OAuth via Authlib, sessions via Flask-Login |
 | Media | Local filesystem at `backend/media/`, served by Flask |
-| Email | Resend |
+| Email | Gmail SMTP with App Password |
 | Deployment | Docker Compose, nginx, gunicorn |
 | Hosting | Tailscale Funnel (public HTTPS, no port forwarding needed) |
 | PWA | vite-plugin-pwa + Workbox |
@@ -61,7 +61,7 @@ Google OAuth
 Internet
    │ HTTPS (Tailscale Funnel)
    ▼
-https://goon-pod.tail26570e.ts.net
+https://<your-ts-hostname>
    │ HTTP :8080
    ▼
 nginx container             ← serves built React app, proxies /api/* and /media/*
@@ -112,11 +112,15 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 FRONTEND_URL=http://localhost:5173
 OAUTH_REDIRECT_URI=http://localhost:5173/api/auth/google/callback
-RESEND_API_KEY=your-resend-api-key
+GMAIL_APP_PASSWORD=your-gmail-app-password
 EOF
 
 flask db upgrade
 ```
+
+> **Gmail App Password:** enable 2-Step Verification on your Google account, then go to
+> [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and create an app password.
+> Update `mercurymcindoe@gmail.com` in `app.py` → `send_invite_email` to your own address if forking.
 
 Seed yourself into the invite allowlist:
 
@@ -183,6 +187,21 @@ with app.app_context():
 
 ### First-time deploy
 
+**1. Create `backend/.env`:**
+
+```
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+FLASK_SECRET_KEY=...
+FRONTEND_URL=https://<your-ts-hostname>
+OAUTH_REDIRECT_URI=https://<your-ts-hostname>/api/auth/google/callback
+GMAIL_APP_PASSWORD=...
+```
+
+**2. Update `docker-compose.yml`** — replace `goon-pod.tail26570e.ts.net` with your Tailscale hostname in the `FRONTEND_URL` and `OAUTH_REDIRECT_URI` fields.
+
+**3. Run:**
+
 ```bash
 ./deploy.sh
 ```
@@ -204,9 +223,9 @@ The SQLite database and uploaded media are mounted as volumes and survive rebuil
 | `GOOGLE_CLIENT_ID` | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret |
 | `FLASK_SECRET_KEY` | Random secret for session signing |
-| `FRONTEND_URL` | Frontend URL (overridden by docker-compose in prod) |
-| `OAUTH_REDIRECT_URI` | OAuth callback URL (overridden in prod) |
-| `RESEND_API_KEY` | [Resend](https://resend.com) API key for invite emails |
+| `FRONTEND_URL` | Public frontend URL |
+| `OAUTH_REDIRECT_URI` | Google OAuth callback URL |
+| `GMAIL_APP_PASSWORD` | Gmail App Password for sending invite emails |
 
 ---
 
@@ -228,7 +247,7 @@ K2/
 │   │   ├── components/             PostCard, ProjectCard, PlanCard, …
 │   │   └── pages/                  Login, Home, Profile, Plans, Admin, Install, …
 │   ├── public/
-│   │   ├── favicon.svg             App icon (mountain peak)
+│   │   ├── favicon.png             App icon
 │   │   ├── icon-192.png            PWA icon
 │   │   ├── icon-512.png            PWA icon
 │   │   └── logo.svg                Horizontal logo lockup
@@ -259,8 +278,18 @@ flask db upgrade
 ### Inspect the database
 
 ```bash
+# From host
 sqlite3 backend/app.db ".tables"
 sqlite3 backend/app.db "SELECT id, email, is_admin FROM users;"
+
+# Inside the running container
+docker compose exec backend python3 -c "
+from app import app, db
+from models import User, InviteAllowList
+with app.app_context():
+    for u in User.query.all():
+        print(u.id, u.email, u.is_admin)
+"
 ```
 
 ### View production logs

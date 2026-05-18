@@ -6,6 +6,7 @@ services:
     environment:
       FRONTEND_URL: https://goon-pod.tail26570e.ts.net
       OAUTH_REDIRECT_URI: https://goon-pod.tail26570e.ts.net/api/auth/google/callback
+      PYTHONUNBUFFERED: "1"
     volumes:
       - ./backend/app.db:/app/app.db
       - ./backend/media:/app/media

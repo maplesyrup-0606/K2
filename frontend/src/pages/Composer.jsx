@@ -291,7 +291,7 @@ export default function Composer({ user, onClose, onPosted }) {
                     placeholder={`Title (e.g. "orange ${gradeLabel} cave")`}
                     maxLength={120}
                     autoFocus
-                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
                   />
                   <button
                     type="button"

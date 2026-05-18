@@ -96,7 +96,7 @@ export default function Install() {
 
   return (
     <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6">
-      <img src="/logo.svg" alt="K2" className="h-10 mb-8" />
+      <img src="/favicon.png" alt="K2" className="h-12 mb-8 rounded-xl" />
 
       <h1 className="text-2xl font-bold text-white mb-2">You're invited</h1>
       <p className="text-stone-400 mb-10 text-center">Install K2 to your device for the best experience</p>

@@ -1,13 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link, useParams, Navigate } from 'react-router-dom'
+import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
 import StatsPanel from '../components/StatsPanel'
 import ProjectCard from '../components/ProjectCard'
 import EditPostModal from './EditPostModal'
 
-export default function Profile({ currentUser }) {
+export default function Profile({ currentUser, onLogout }) {
   const { username } = useParams()
+  const navigate = useNavigate()
+
+  async function logout() {
+    await api.logout()
+    if (onLogout) await onLogout()
+    navigate('/login')
+  }
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,6 +135,26 @@ export default function Profile({ currentUser }) {
                 </div>
               </div>
             </div>
+
+            {/* Own profile actions */}
+            {isOwnProfile && (
+              <div className="mt-3 flex gap-2 sm:hidden">
+                {currentUser.is_admin && (
+                  <Link
+                    to="/admin/invites"
+                    className="flex-1 text-center text-sm py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={logout}
+                  className="flex-1 text-sm py-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium"
+                >
+                  Log out
+                </button>
+              </div>
+            )}
 
             {/* Stats */}
             <div className="mt-6">

@@ -100,7 +100,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
             <select
               value={gymId}
               onChange={(e) => setGymId(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
               required
             >
               {gyms.map((g) => (
@@ -112,7 +112,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 flex flex-col gap-3">
           <div>
             <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
               Date
@@ -122,7 +122,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
               value={date}
               min={todayLocalDate()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
               required
             />
           </div>
@@ -134,7 +134,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
               required
             />
           </div>
@@ -149,7 +149,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
             rows={2}
-            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
         </div>
 
