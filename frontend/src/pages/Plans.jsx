@@ -4,6 +4,7 @@ import { api } from '../api'
 import PlanCard from '../components/PlanCard'
 import PlanComposer from './PlanComposer'
 import EditPlanModal from './EditPlanModal'
+import { usePullToRefresh } from '../components/PullToRefresh'
 
 function dayKey(iso) {
   const d = new Date(iso)
@@ -44,6 +45,8 @@ export default function Plans({ currentUser }) {
   useEffect(() => {
     load()
   }, [load])
+
+  const { indicator: pullIndicator } = usePullToRefresh(load)
 
   function handleCreated(plan) {
     // Insert in chronological order
@@ -113,6 +116,7 @@ export default function Plans({ currentUser }) {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
+        {pullIndicator}
         <h1 className="text-2xl font-semibold">Who's going this week</h1>
         <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
           Post a plan to coordinate sessions with friends.

@@ -5,6 +5,7 @@ import Composer from './Composer'
 import PostCard from '../components/PostCard'
 import NotificationsBell from '../components/NotificationsBell'
 import ThemeToggle from '../components/ThemeToggle'
+import { usePullToRefresh } from '../components/PullToRefresh'
 
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
@@ -30,6 +31,8 @@ export default function Home({ user, onLogout }) {
   useEffect(() => {
     loadFeed()
   }, [loadFeed])
+
+  const { indicator: pullIndicator } = usePullToRefresh(loadFeed)
 
   async function loadMore() {
     if (nextOffset == null || loadingMore) return
@@ -110,6 +113,7 @@ export default function Home({ user, onLogout }) {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
+        {pullIndicator}
         {loading && (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         )}

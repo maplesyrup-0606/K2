@@ -882,10 +882,13 @@ def remove_gym(gym_id):
     return '', 204
 
 def plan_payload(plan):
+    planned_at = plan.planned_at
+    if planned_at.tzinfo is None:
+        planned_at = planned_at.replace(tzinfo=timezone.utc)
     return {
         'id': plan.id,
         'created_at': plan.created_at.isoformat(),
-        'planned_at': plan.planned_at.isoformat(),
+        'planned_at': planned_at.isoformat(),
         'note': plan.note,
         'gym': {
             'id': plan.gym.id,
