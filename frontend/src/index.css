@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* Dark mode = `.dark` class on <html>. We set that class at app boot based on
+   the user's saved preference (or system preference if they haven't picked). */
+@variant dark (&:where(.dark, .dark *));
+
+html {
+  color-scheme: light dark;
+}

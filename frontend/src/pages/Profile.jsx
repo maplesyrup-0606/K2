@@ -16,6 +16,8 @@ export default function Profile({ currentUser }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [editing, setEditing] = useState(null)
   const [projects, setProjects] = useState([])
+  const [projectStatus, setProjectStatus] = useState('active')
+  const [loadingProjects, setLoadingProjects] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -23,11 +25,9 @@ export default function Profile({ currentUser }) {
     const [
       { ok: ok1, data: profileData },
       { ok: ok2, data: postsData },
-      { ok: ok3, data: projectsData },
     ] = await Promise.all([
       api.getUserProfile(username),
       api.listUserPosts(username),
-      api.listUserProjects(username, 'active'),
     ])
     setLoading(false)
     if (!ok1 || !ok2) {
@@ -37,12 +37,25 @@ export default function Profile({ currentUser }) {
     setProfile(profileData)
     setPosts(postsData.posts)
     setNextOffset(postsData.next_offset)
-    setProjects(ok3 ? projectsData.projects : [])
   }, [username])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // Fetch projects whenever username or selected status changes
+  useEffect(() => {
+    let cancelled = false
+    setLoadingProjects(true)
+    api.listUserProjects(username, projectStatus).then(({ ok, data }) => {
+      if (cancelled) return
+      setProjects(ok ? data.projects : [])
+      setLoadingProjects(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [username, projectStatus])
 
   async function loadMore() {
     if (nextOffset == null || loadingMore) return
@@ -78,28 +91,28 @@ export default function Profile({ currentUser }) {
   const isOwnProfile = currentUser && profile && currentUser.id === profile.id
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white sticky top-0 z-10">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight">
             K2
           </Link>
           <Link
             to="/"
-            className="text-sm text-stone-500 hover:text-stone-900"
+            className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
           >
             ← Feed
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading ? (
-          <div className="text-center text-stone-400 py-12">Loading…</div>
+          <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         ) : profile ? (
           <>
             {/* Profile header */}
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 flex items-center gap-4">
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 flex items-center gap-4">
               {profile.avatar_url && (
                 <img
                   src={profile.avatar_url}
@@ -109,8 +122,8 @@ export default function Profile({ currentUser }) {
               )}
               <div className="flex-1">
                 <h1 className="text-xl font-semibold">{profile.display_name}</h1>
-                <div className="text-sm text-stone-400">@{profile.username}</div>
-                <div className="text-xs text-stone-400 mt-1">
+                <div className="text-sm text-stone-400 dark:text-stone-500">@{profile.username}</div>
+                <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
                   Joined {new Date(profile.created_at).toLocaleDateString()}
                 </div>
               </div>
@@ -121,24 +134,55 @@ export default function Profile({ currentUser }) {
               <StatsPanel username={profile.username} />
             </div>
 
-            {/* Active projects */}
-            {projects.length > 0 && (
-              <div className="mt-6">
-                <h2 className="text-sm font-medium text-stone-700 mb-3">
-                  Active projects ({projects.length})
+            {/* Projects */}
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                  Projects
                 </h2>
+                <div className="flex gap-1">
+                  {[
+                    ['active', 'Active'],
+                    ['sent', 'Sent'],
+                    ['abandoned', 'Abandoned'],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setProjectStatus(key)}
+                      className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                        projectStatus === key
+                          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                          : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingProjects ? (
+                <div className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
+                  Loading…
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
+                  No {projectStatus} projects.
+                </div>
+              ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {projects.map((p) => (
                     <ProjectCard key={p.id} project={p} />
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Post list */}
             <div className="mt-6 space-y-6">
               {posts.length === 0 ? (
-                <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center text-stone-500 text-sm">
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
                   No posts yet.
                 </div>
               ) : (
@@ -161,7 +205,7 @@ export default function Profile({ currentUser }) {
                     type="button"
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="text-sm text-stone-500 hover:text-stone-900 disabled:opacity-50"
+                    className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
                   >
                     {loadingMore ? 'Loading…' : 'Load more'}
                   </button>

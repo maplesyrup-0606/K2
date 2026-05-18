@@ -128,17 +128,17 @@ export default function Composer({ user, onClose, onPosted }) {
     gradeScale === 'v' ? `V${gradeValue}` : `Comp ${gradeValue}`
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto shadow-xl"
+        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">New post</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-stone-500 hover:text-stone-900 text-xl leading-none"
+            className="text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-xl leading-none"
             aria-label="Close"
           >
             ✕
@@ -147,7 +147,7 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Photo picker */}
         <label className="block cursor-pointer">
-          <div className="aspect-square w-full bg-stone-100 rounded-xl overflow-hidden flex items-center justify-center hover:bg-stone-200 transition border border-stone-200">
+          <div className="aspect-square w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden flex items-center justify-center hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300 transition border border-stone-200 dark:border-stone-800">
             {photoPreview ? (
               <img
                 src={photoPreview}
@@ -155,7 +155,7 @@ export default function Composer({ user, onClose, onPosted }) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="text-stone-500 text-sm">
+              <div className="text-stone-500 dark:text-stone-400 text-sm">
                 <span className="text-2xl">＋</span>
                 <div>Add photo</div>
               </div>
@@ -171,7 +171,7 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Grade scale + value */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Grade
           </label>
           <div className="mt-1 flex gap-2 items-center">
@@ -185,8 +185,8 @@ export default function Composer({ user, onClose, onPosted }) {
                 onClick={() => handleScaleChange(s)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                   gradeScale === s
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {label}
@@ -202,9 +202,9 @@ export default function Composer({ user, onClose, onPosted }) {
                 setGradeValue(Number.isNaN(n) ? gradeMin : n)
                 setProjectSelection(null)
               }}
-              className="w-16 ml-2 px-2 py-1.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="w-16 ml-2 px-2 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
             />
-            <span className="text-sm text-stone-500">
+            <span className="text-sm text-stone-500 dark:text-stone-400">
               ({gradeMin}–{gradeMax})
             </span>
           </div>
@@ -212,7 +212,7 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Outcome */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Outcome
           </label>
           <div className="mt-1 grid grid-cols-3 gap-2">
@@ -223,8 +223,8 @@ export default function Composer({ user, onClose, onPosted }) {
                 onClick={() => setOutcome(v)}
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   outcome === v
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {label}
@@ -235,13 +235,13 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Project linking — optional, available for any outcome */}
         <div className="mt-4">
-            <label className="block text-sm font-medium text-stone-700">
+            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
               Link to a project?{' '}
-              <span className="text-stone-400">(optional)</span>
+              <span className="text-stone-400 dark:text-stone-500">(optional)</span>
             </label>
             <div className="mt-2 space-y-2">
               {loadingProjects && (
-                <div className="text-xs text-stone-400">Loading…</div>
+                <div className="text-xs text-stone-400 dark:text-stone-500">Loading…</div>
               )}
 
               {!loadingProjects && matchingProjects.length > 0 && (
@@ -257,8 +257,8 @@ export default function Composer({ user, onClose, onPosted }) {
                       }
                       className={`px-3 py-1.5 rounded-lg text-sm transition border ${
                         projectSelection === p.id
-                          ? 'bg-stone-900 text-white border-stone-900'
-                          : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900'
+                          : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/50'
                       }`}
                     >
                       {p.title}
@@ -268,7 +268,7 @@ export default function Composer({ user, onClose, onPosted }) {
               )}
 
               {!loadingProjects && matchingProjects.length === 0 && (
-                <div className="text-xs text-stone-400">
+                <div className="text-xs text-stone-400 dark:text-stone-500">
                   No existing {gradeLabel} projects.
                 </div>
               )}
@@ -278,12 +278,12 @@ export default function Composer({ user, onClose, onPosted }) {
                 <button
                   type="button"
                   onClick={() => setProjectSelection('new')}
-                  className="text-sm text-stone-600 hover:text-stone-900 underline"
+                  className="text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 underline"
                 >
                   + New project
                 </button>
               ) : (
-                <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2">
+                <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg p-3 space-y-2">
                   <input
                     type="text"
                     value={newProjectTitle}
@@ -291,7 +291,7 @@ export default function Composer({ user, onClose, onPosted }) {
                     placeholder={`Title (e.g. "orange ${gradeLabel} cave")`}
                     maxLength={120}
                     autoFocus
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
                   />
                   <button
                     type="button"
@@ -299,7 +299,7 @@ export default function Composer({ user, onClose, onPosted }) {
                       setProjectSelection(null)
                       setNewProjectTitle('')
                     }}
-                    className="text-xs text-stone-500 hover:text-stone-900"
+                    className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
                   >
                     Cancel
                   </button>
@@ -310,7 +310,7 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Attempts */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Attempts
           </label>
           <div className="mt-1 grid grid-cols-5 gap-2">
@@ -321,8 +321,8 @@ export default function Composer({ user, onClose, onPosted }) {
                 onClick={() => setAttempts(a)}
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   attempts === a
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {a}
@@ -333,8 +333,8 @@ export default function Composer({ user, onClose, onPosted }) {
 
         {/* Notes */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
-            Notes <span className="text-stone-400">(optional)</span>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Notes <span className="text-stone-400 dark:text-stone-500">(optional)</span>
           </label>
           <textarea
             value={notes}
@@ -342,16 +342,16 @@ export default function Composer({ user, onClose, onPosted }) {
             maxLength={2000}
             rows={2}
             placeholder="Beta, thoughts, etc."
-            className="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
         </div>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting || !photo}
-          className="mt-5 w-full bg-stone-900 text-white rounded-lg px-4 py-2 font-medium hover:bg-stone-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Posting…' : 'Post'}
         </button>

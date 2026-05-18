@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 from flask_cors import CORS
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timezone, timedelta
 from PIL import Image, UnidentifiedImageError
@@ -38,7 +38,7 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager(app)
-from models import User, InviteAllowList, Project, Post, Reaction
+from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, Notification
 
 oauth = OAuth(app)
 oauth.register(
@@ -422,6 +422,15 @@ def delete_post(post_id):
     
     return '', 204
 
+@app.route('/api/posts/<int:post_id>', methods=['GET'])
+@login_required
+def get_post(post_id):
+    post = db.session.get(Post, post_id)
+    if post is None:
+        return {'error' : 'post not found'}, 404
+
+    return post_payload(post)
+
 @app.route('/api/users/<username>', methods=['GET'])
 @login_required
 def get_user(username):
@@ -547,6 +556,15 @@ def add_reaction(post_id):
             user_id=current_user.id,
             emoji=emoji,
         ))
+        
+        if post_id != current_user.id:
+            db.session.add(Notification(
+                user_id=post.user_id,
+                actor_id=current_user.id,
+                type='reaction',
+                post_id=post_id,
+                emoji=emoji,
+            ))
         db.session.commit()
     
     return post_payload(post), 200
@@ -763,11 +781,344 @@ def delete_project(project_id):
     db.session.commit()
     return '', 204
 
+def gym_payload(gym):
+    return {
+        'id': gym.id,
+        'name': gym.name,
+        'created_at': gym.created_at.isoformat()
+    }
+
+@app.route('/api/admin/gyms', methods=['POST'])
+@admin_required
+def add_gym():
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    
+    if not (1 <= len(name) <= 120):
+        return {'error': 'name must be 1-120 chars'}, 400
+
+    existing = Gym.query.filter_by(name=name).first()
+    if existing is not None:
+        return gym_payload(existing), 200
+
+    gym = Gym(name=name)
+    db.session.add(gym)
+    db.session.commit()
+    return gym_payload(gym), 201
+
+@app.route('/api/gyms', methods=['GET'])
+@login_required
+def list_gyms():
+    gyms = Gym.query.order_by(Gym.name.asc()).all()
+    return {'gyms': [gym_payload(g) for g in gyms]}
+
+@app.route('/api/admin/gyms/<int:gym_id>', methods=['PATCH'])
+@admin_required
+def update_gym(gym_id):
+    gym = db.session.get(Gym, gym_id)
+    if gym is None:
+        return {'error': 'gym not found'}, 404
+
+    data = request.get_json(silent=True) or {}
+    if 'name' in data:
+        name = (data['name'] or '').strip()
+        if not (1 <= len(name) <= 120):
+            return {'error': 'name must be 1-120 chars'}, 400
+        
+        existing = Gym.query.filter_by(name=name).first()
+        if existing is not None and existing.id != gym_id:
+            return {'error': 'name already taken'}, 409
+    
+        gym.name = name
+    
+    db.session.commit()
+    return gym_payload(gym)
+
+@app.route('/api/admin/gyms/<int:gym_id>', methods=['DELETE'])
+@admin_required
+def remove_gym(gym_id):
+    gym = db.session.get(Gym, gym_id)
+    if gym is None:
+        return {'error': 'gym not found'}, 404
+
+    in_use = Plan.query.filter_by(gym_id=gym_id).first() is not None
+    if in_use:
+        return {'error' : 'gym is referenced by existing plans'}, 409
+
+    db.session.delete(gym)
+    db.session.commit()
+    return '', 204
+
+def plan_payload(plan):
+    return {
+        'id': plan.id,
+        'created_at': plan.created_at.isoformat(),
+        'planned_at': plan.planned_at.isoformat(),
+        'note': plan.note,
+        'gym': {
+            'id': plan.gym.id,
+            'name': plan.gym.name,
+        },
+        'organizer': {
+            'id': plan.user.id,
+            'username': plan.user.username,
+            'display_name': plan.user.display_name,
+            'avatar_url': plan.user.avatar_url,
+        },
+        'attendees': [
+            {
+                'id': pa.user.id,
+                'username': pa.user.username,
+                'display_name': pa.user.display_name,
+                'avatar_url': pa.user.avatar_url,
+            }
+            for pa in plan.attendees
+        ],
+    }
+    
+@app.route('/api/plans', methods=['POST'])
+@login_required
+def create_plan():
+    data = request.get_json(silent=True) or {}
+    
+    gym_id_raw = data.get('gym_id')
+    if gym_id_raw is None:
+        return {'error': 'gym_id is required'}, 400
+    try:
+        gym_id = int(gym_id_raw)
+    except (ValueError, TypeError):
+        return {'error': 'gym_id must be an integer'}, 400
+    gym = db.session.get(Gym, gym_id)
+    if gym is None:
+        return {'error': 'gym not found'}, 400
+    
+    planned_at_str = data.get('planned_at')
+    if not planned_at_str:
+        return {'error': 'planned_at is required'}, 400
+    try:
+        planned_at = datetime.fromisoformat(planned_at_str)
+    except ValueError:
+        return {'error': 'planned_at must be ISO 8601'}, 400
+    if planned_at.tzinfo is None:
+        planned_at = planned_at.replace(tzinfo=timezone.utc)
+    if planned_at < datetime.now(timezone.utc):
+        return {'error': 'planned_at must be in the future'}, 400
+    
+    note = data.get('note')
+    if note is not None:
+        note = note.strip()
+        if len(note) > 500:
+            return {'error': 'note must be at most 500 chars'}, 400
+        if note == '':
+            note = None
+            
+    plan = Plan(
+        user_id=current_user.id,
+        gym_id=gym_id,
+        planned_at=planned_at,
+        note=note,
+    )
+    
+    db.session.add(plan)
+    db.session.flush()
+    
+    db.session.add(PlanAttendee(
+        plan_id=plan.id,
+        user_id=current_user.id,
+    ))
+    
+    db.session.commit()
+    return plan_payload(plan), 201
+
+@app.route('/api/plans', methods=['GET'])
+@login_required
+def list_plans():
+    now = datetime.now(timezone.utc)
+    week_out = now + timedelta(days=7)
+    
+    plans = (
+        Plan.query
+        .filter(Plan.planned_at >= now)
+        .filter(
+            or_(
+                Plan.user_id == current_user.id,
+                Plan.planned_at <= week_out,
+            )
+        )
+        .order_by(Plan.planned_at.asc())
+        .all()
+    )
+    
+    return {'plans': [plan_payload(p) for p in plans]}
+
+@app.route('/api/plans/<int:plan_id>/attendees', methods=['POST'])
+@login_required
+def join_plan(plan_id):
+    plan = db.session.get(Plan, plan_id)
+    if plan is None:
+        return {'error': 'plan not found'}, 404
+
+    existing = db.session.get(PlanAttendee, (plan_id, current_user.id))
+    if existing is None:
+        db.session.add(PlanAttendee(
+            plan_id=plan_id,
+            user_id=current_user.id,
+        ))
+        
+        if plan.user_id != current_user.id:
+            db.session.add(Notification(
+                user_id=plan.user_id,
+                actor_id=current_user.id,
+                type='plan_join',
+                plan_id=plan.id
+            ))
+        db.session.commit()
+    
+    return plan_payload(plan), 200
+
+@app.route('/api/plans/<int:plan_id>/attendees', methods=['DELETE'])
+@login_required
+def leave_plan(plan_id):
+    plan = db.session.get(Plan, plan_id)
+    if plan is None:
+        return {'error': 'plan not found'}, 404
+
+    if plan.user_id == current_user.id:
+        return {
+            'error': 'organizer cannot leave; delete the plan instead'
+        }, 400
+        
+    attendee = db.session.get(PlanAttendee, (plan_id, current_user.id))
+    if attendee is not None:
+        db.session.delete(attendee)
+        db.session.commit()
+    
+    return plan_payload(plan), 200
+
+@app.route('/api/plans/<int:plan_id>', methods=['PATCH'])
+@login_required
+def update_plan(plan_id):
+    plan = db.session.get(Plan, plan_id)
+    if plan is None:
+        return {'error' : 'plan not found'}, 404
+    if plan.user_id != current_user.id:
+        return {'error' : 'not your plan'}, 403
+
+    data = request.get_json(silent=True) or {}
+
+    if 'gym_id' in data:
+        try:
+            gym_id = int(data['gym_id'])
+        except (ValueError, TypeError):
+            return {'error': 'gym_id must be an integer'}, 400
+        gym = db.session.get(Gym, gym_id)
+        if gym is None:
+            return {'error': 'gym not found'}, 400
+        plan.gym_id = gym_id
+
+    if 'planned_at' in data:
+        try:
+            planned_at = datetime.fromisoformat(data['planned_at'])
+        except (ValueError, TypeError):
+            return {'error': 'planned_at must be ISO 8601'}, 400
+        if planned_at.tzinfo is None:
+            planned_at = planned_at.replace(tzinfo=timezone.utc)
+        if planned_at < datetime.now(timezone.utc):
+            return {'error': 'planned_at must be in the future'}, 400
+        plan.planned_at = planned_at
+
+    if 'note' in data:
+        note = data['note']
+        if note is not None:
+            note = note.strip()
+            if len(note) > 500:
+                return {'error': 'note must be at most 500 chars'}, 400
+            if note == '':
+                note = None
+        plan.note = note
+
+    db.session.commit()
+    return plan_payload(plan)
+
+@app.route('/api/plans/<int:plan_id>', methods=['DELETE'])
+@login_required
+def delete_plan(plan_id):
+    plan = db.session.get(Plan, plan_id)
+    if plan is None:
+        return {'error' : 'plan not found'}, 404
+    if plan.user_id != current_user.id:
+        return {'error' : 'not your plan'}, 403
+
+    PlanAttendee.query.filter_by(plan_id=plan_id).delete()
+    
+    db.session.delete(plan)
+    db.session.commit()
+    return '', 204
+
+def notification_payload(n):
+    return {
+        'id': n.id,
+        'type': n.type,
+        'is_read': n.is_read,
+        'created_at': n.created_at.isoformat(),
+        'actor': {
+            'id': n.actor.id,
+            'username': n.actor.username,
+            'display_name': n.actor.display_name,
+            'avatar_url': n.actor.avatar_url,
+        },
+        'post_id': n.post_id,
+        'plan_id': n.plan_id,
+        'emoji': n.emoji,
+    }
+    
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def list_notifications():
+    notifications = (
+        Notification.query
+        .filter_by(user_id=current_user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    
+    unread_count = (
+        Notification.query
+        .filter_by(user_id=current_user.id, is_read=False)
+        .count()
+    )
+    
+    return {
+        'notifications' : [notification_payload(n) for n in notifications],
+        'unread_count': unread_count
+    }
+    
+@app.route('/api/notifications/read', methods=['POST'])
+@login_required
+def mark_notifications_read():
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids')
+
+    q = Notification.query.filter_by(user_id=current_user.id, is_read=False)
+    if isinstance(ids, list) and len(ids) > 0:
+        # validate they're all ints
+        try:
+            ids = [int(x) for x in ids]
+        except (ValueError, TypeError):
+            return {'error': 'ids must be integers'}, 400
+        q = q.filter(Notification.id.in_(ids))
+
+    q.update({'is_read': True})
+    db.session.commit()
+    return {'ok': True}
+    
+    
+
 
 @app.route("/media/<path:filepath>")    
 def serve_media(filepath):
     return send_from_directory(MEDIA_DIR, filepath)
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

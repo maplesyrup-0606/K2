@@ -3,15 +3,15 @@ import { api } from '../api'
 
 function statusBadge(project) {
   if (project.is_expired && project.status === 'active') {
-    return { text: 'Stale', className: 'bg-stone-200 text-stone-600' }
+    return { text: 'Stale', className: 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-400' }
   }
   if (project.status === 'active') {
-    return { text: 'Active', className: 'bg-blue-100 text-blue-700' }
+    return { text: 'Active', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' }
   }
   if (project.status === 'sent') {
-    return { text: 'Sent', className: 'bg-emerald-100 text-emerald-700' }
+    return { text: 'Sent', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' }
   }
-  return { text: 'Abandoned', className: 'bg-stone-100 text-stone-700' }
+  return { text: 'Abandoned', className: 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300' }
 }
 
 function daysLeft(project) {
@@ -32,9 +32,9 @@ export default function ProjectCard({ project }) {
   return (
     <Link
       to={`/projects/${project.id}`}
-      className="block bg-white border border-stone-200 rounded-2xl overflow-hidden hover:shadow-md transition"
+      className="block bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden hover:shadow-md transition"
     >
-      <div className="aspect-square bg-stone-100">
+      <div className="aspect-square bg-stone-100 dark:bg-stone-800">
         <img
           src={`${api.baseUrl}/media/${project.photo_path}`}
           alt=""
@@ -43,7 +43,7 @@ export default function ProjectCard({ project }) {
       </div>
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-medium text-stone-900 line-clamp-2">
+          <h3 className="text-sm font-medium text-stone-900 dark:text-stone-100 line-clamp-2">
             {project.title}
           </h3>
           <span
@@ -52,13 +52,13 @@ export default function ProjectCard({ project }) {
             {badge.text}
           </span>
         </div>
-        <div className="mt-1 text-xs text-stone-500">
+        <div className="mt-1 text-xs text-stone-500 dark:text-stone-400">
           {gradeLabel} · {project.sessions} session
           {project.sessions === 1 ? '' : 's'} · {project.attempts_lower_bound}+
           attempts
         </div>
         {days != null && days > 0 && (
-          <div className="mt-1 text-[10px] text-stone-400">
+          <div className="mt-1 text-[10px] text-stone-400 dark:text-stone-500">
             {days} day{days === 1 ? '' : 's'} left
           </div>
         )}

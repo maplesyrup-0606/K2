@@ -1,59 +1,229 @@
-# K2 — Climbing Log
+# K2
 
-A "climbing twitter" for a small friend group of indoor boulderers. Personal climbing journeys, shared in a feed, with emoji reactions.
+A private "climbing twitter" for a small friend group of indoor boulderers. Log your sessions, react to your friends' climbs, see who's planning to go to the gym this week, track the projects you're working on.
 
-This README is a working log — what's built, what's next, and the things that confused me along the way.
-
----
-
-## TL;DR — what we've done
-
-**Day 1 (design): Locked the entire v1 scope.** See `.claude/projects/.../memory/project_k2.md` for the full design memory.
-
-**Day 1 (build):**
-
-- **Frontend skeleton** — React 19 + Vite 8 + Tailwind v4, in `frontend/`. Boots, renders a placeholder K2 landing page with a sample feed card and a floating "+" button (the FAB we designed).
-- **Backend skeleton** — Flask 3 + SQLAlchemy + SQLite + Flask-Migrate, in `backend/`.
-  - 5 models defined and migrated: `User`, `Post`, `Project`, `Reaction`, `InviteAllowList`.
-  - SQLite DB lives at `backend/app.db`.
-- **Auth: Google OAuth (via Authlib) + Flask-Login.** Sign-in round-trip works end-to-end.
-- **One endpoint built so far:** `GET /api/auth/me` — returns your user info when signed in, 401 otherwise.
+It's invite-only — only emails on an allowlist can sign in.
 
 ---
 
-## How to run it
+## Tech stack
 
-### Backend
+| Layer | Tech |
+|---|---|
+| Frontend | React 19, Vite 8, Tailwind v4, React Router v7 |
+| Backend | Flask 3, SQLAlchemy 2, Flask-Migrate (Alembic) |
+| Database | SQLite (single file on disk) |
+| Auth | Google OAuth via Authlib, sessions via Flask-Login |
+| Media | Local filesystem at `backend/media/`, served by Flask |
+| Image handling | Pillow for upload validation |
+
+No external services besides Google OAuth — everything runs locally.
+
+---
+
+## How it works
+
+The frontend (React SPA) and backend (Flask JSON API) are two separate apps that talk over HTTP:
+
+```
+   ┌──────────────────────┐       JSON / multipart       ┌──────────────────────┐
+   │  React (port 5173)   │  ───────────────────────►   │  Flask (port 8000)   │
+   │  Vite dev server     │  ◄───────────────────────   │  SQLite + media/     │
+   └──────────────────────┘                              └──────────────────────┘
+            ▲
+            │  Sign in with Google
+            ▼
+   ┌──────────────────────┐
+   │  Google OAuth        │
+   └──────────────────────┘
+```
+
+- **Auth**: user clicks "Sign in with Google" → Google → Flask callback validates them, checks if their email is on the invite allowlist, finds-or-creates a `User` row, sets a session cookie.
+- **Posts**: photos upload as multipart to `/api/posts`, saved at `media/<user_id>/<uuid>.jpg`. Feed reads via `/api/posts`.
+- **Reactions, projects, plans, notifications**: separate REST endpoints; the frontend keeps local state in sync via response payloads.
+- **Admin**: a flag on the User row gates `/api/admin/*` routes (invite allowlist + gym management).
+
+Full feature list and deferred items are in `MEMORY.md`-style project notes (out of repo). The short version:
+
+- ✓ Posts (create, feed, edit, delete, permalinks)
+- ✓ Emoji reactions
+- ✓ Per-user profile with stats + grade pyramids
+- ✓ Projects with status, 30-day soft-expire, in-flow creation
+- ✓ Intent board: who's climbing when, with join/leave
+- ✓ Notifications (reactions to your posts, joins on your plans)
+- ✓ Admin: invite allowlist + gym management
+- ✓ Dark mode (manual toggle + system preference)
+- ✓ Mobile responsive with bottom-tab navigation
+
+---
+
+## Repository layout
+
+```
+K2/
+├── README.md
+├── frontend/                       React + Vite + Tailwind
+│   ├── src/
+│   │   ├── api.js                  Fetch helpers
+│   │   ├── theme.js                Light/dark theme management
+│   │   ├── App.jsx                 Router + auth state
+│   │   ├── main.jsx
+│   │   ├── components/             PostCard, ProjectCard, PlanCard, …
+│   │   └── pages/                  Login, Home, Profile, Plans, Admin, …
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+└── backend/                        Flask
+    ├── app.py                      Routes + payload helpers
+    ├── models.py                   SQLAlchemy models
+    ├── migrations/                 Alembic migration history
+    ├── requirements.txt
+    └── .env                        Secrets (NOT committed)
+```
+
+At runtime the backend also creates:
+- `backend/app.db` — SQLite database
+- `backend/media/` — uploaded photos
+- `backend/.venv/` — Python virtualenv
+
+All three are gitignored.
+
+---
+
+## Setup
+
+### Prerequisites
+
+You'll need:
+
+- **Python 3.12+**
+- **Node.js 20+**
+- A **Google Cloud project** with an OAuth Web Application client (free)
+
+#### macOS
+
+```bash
+# Homebrew is the easiest way
+brew install python@3.12 node
+```
+
+#### Linux (Debian / Ubuntu)
+
+```bash
+sudo apt update
+sudo apt install python3.12 python3.12-venv python3-pip
+# Node: install nvm and use it
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+# restart shell, then:
+nvm install 20
+```
+
+#### Windows
+
+Easiest path is via [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/):
+
+```powershell
+winget install Python.Python.3.12
+winget install OpenJS.NodeJS.LTS
+```
+
+All commands below assume a Unix-style shell (Git Bash on Windows works, or use WSL).
+
+### 1. Clone
+
+```bash
+git clone https://github.com/maplesyrup-0606/K2.git
+cd K2
+```
+
+### 2. Create a Google OAuth client
+
+You need one to let users sign in. One-time setup:
+
+1. Go to https://console.cloud.google.com/apis/credentials
+2. Create a new project (or use an existing one)
+3. **Credentials → Create credentials → OAuth client ID**
+4. Application type: **Web application**
+5. Authorized redirect URIs — add:
+   ```
+   http://localhost:8000/api/auth/google/callback
+   ```
+6. Save and copy the **Client ID** and **Client secret**
+
+### 3. Backend setup
 
 ```bash
 cd backend
-source .venv/bin/activate
-flask --app app run --debug --port 8000
+
+# Virtualenv
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# Dependencies
+pip install -r requirements.txt
+
+# Create .env (paste your Google credentials)
+cat > .env <<EOF
+GOOGLE_CLIENT_ID=your-client-id-here
+GOOGLE_CLIENT_SECRET=your-client-secret-here
+FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+EOF
+
+# Create the database
+flask --app app db upgrade
 ```
 
-Why port 8000 and not 5000? macOS's AirPlay Receiver hijacks port 5000. Easier to use 8000 than disable AirPlay.
+Now seed yourself into the invite allowlist (otherwise sign-in will 403):
 
-Why `flask --app app run` and not `python app.py`? Python loads `app.py` as `__main__`. Then `models.py` does `from app import db` — Python doesn't realize `__main__` and `app` are the same thing, so it loads `app.py` a *second* time, causing a circular import. The Flask CLI loads it as `app` cleanly the first time.
+```bash
+sqlite3 app.db "INSERT INTO inviteallowlist (email, created_at) VALUES ('your.email@gmail.com', datetime('now'));"
+```
 
-### Frontend
+After your first successful sign-in, promote yourself to admin so you can use the `/admin` page:
+
+```bash
+sqlite3 app.db "UPDATE users SET is_admin = 1 WHERE email = 'your.email@gmail.com';"
+```
+
+### 4. Frontend setup
+
+In a separate terminal:
 
 ```bash
 cd frontend
+npm install
+```
+
+### 5. Run
+
+Backend (in `backend/` with the venv activated):
+
+```bash
+flask --app app run --debug --port 8000
+```
+
+Frontend (in `frontend/`):
+
+```bash
 npm run dev
 ```
 
-Runs on `http://localhost:5173`.
+Visit **http://localhost:5173**.
 
-### Database
+### Notes
 
-SQLite. The file is `backend/app.db`. Inspect with:
+- **Port 8000 for the backend, not 5000**: macOS reserves 5000 for AirPlay Receiver.
+- **Run the backend via `flask --app app run`, not `python app.py`**: avoids a circular-import quirk in the way `app.py` and `models.py` reference each other.
+- **First-time sign-in**: after Google OAuth completes, you'll briefly land on a 404 on the backend's `/` — that's the OAuth redirect target — then the frontend's auth-state will pick you up.
+- **CORS**: backend allows requests from `http://localhost:5173`. If you change either port, update `CORS(...)` in `backend/app.py` accordingly.
 
-```bash
-sqlite3 backend/app.db ".tables"
-sqlite3 backend/app.db "SELECT * FROM users;"
-```
+---
 
-If you change a model, generate + apply a migration:
+## Day-to-day
+
+### Apply schema changes
+
+After editing `backend/models.py`:
 
 ```bash
 cd backend
@@ -61,140 +231,25 @@ flask --app app db migrate -m "describe the change"
 flask --app app db upgrade
 ```
 
-### Secrets (`backend/.env`)
+### Inspect the database
 
-```
-FLASK_SECRET_KEY=<random 64-char hex string>
-GOOGLE_CLIENT_ID=<from google cloud console>
-GOOGLE_CLIENT_SECRET=<from google cloud console>
-```
-
-`.env` is loaded by `python-dotenv` (called from `load_dotenv()` in `app.py`). Don't commit it.
-
----
-
-## OAuth — explained from scratch
-
-The part I was confused about. Here it is in plain language.
-
-### The problem OAuth solves
-
-You don't want to handle passwords. Passwords mean:
-- Hashing them properly
-- Storing reset flows, emailing reset links
-- Worrying about breaches and credential stuffing
-- Building "forgot my password" pages
-
-OAuth says: **let someone else handle authentication, and trust them when they say "yes, this is the same person."** For us, "someone else" is Google.
-
-### The mental model
-
-When the user signs in with Google, three parties are involved:
-
-1. **You** (the browser user)
-2. **Our app** (the Flask backend) — the "client"
-3. **Google** — the "provider"
-
-The whole flow is: our app asks Google "please tell me who this person is, if they agree to share." Google asks you for permission, then sends our app a verified statement about who you are. We then create or look up a row in our `users` table based on that.
-
-### The actual round-trip
-
-In order:
-
-1. **You** click "Sign in with Google" → your browser hits `http://localhost:8000/google/` on our app.
-2. **Our app** generates a random `state` string, stores it in your session cookie (signed with `FLASK_SECRET_KEY`), and redirects you to Google's auth endpoint with a URL like:
-   ```
-   https://accounts.google.com/o/oauth2/v2/auth?
-       response_type=code
-       &client_id=<our app's ID>
-       &redirect_uri=http://localhost:8000/google/auth
-       &scope=openid email profile
-       &state=<random string>
-       &nonce=<random string>
-   ```
-3. **Google** sees you, recognizes you (or asks you to log in), shows you the consent screen ("K2 wants to see your email and profile"), you click Allow.
-4. **Google** redirects your browser to `http://localhost:8000/google/auth?code=<one-time code>&state=<same random string>`.
-5. **Our app's `/google/auth` route** runs:
-   - Compares the `state` in the URL to the one in your session cookie. If they don't match → `MismatchingStateError` (CSRF protection — someone trying to hijack the flow with a forged URL).
-   - Takes the `code` and trades it (via a server-to-server HTTPS call to Google) for an **id_token** that contains your user info (sub, email, name, picture).
-   - Looks up the user in our DB by `google_sub` (Google's stable ID for you). If not found, checks the invite allowlist by email. If allowed, creates a row.
-   - Calls `login_user(user)` (from Flask-Login) which writes a signed cookie into your browser saying "this session belongs to user #1."
-   - Redirects you to `/`.
-6. **Subsequent requests** carry that cookie. Flask-Login reads it, calls our `user_loader` callback which fetches the User row, and exposes `current_user` to our handlers.
-
-### Key concepts (jargon decoded)
-
-- **Client ID + Client Secret** — our app's ID and password with Google. Registered in [Google Cloud Console](https://console.cloud.google.com/apis/credentials). The secret is *only* used in server-to-server calls (step 5); it never goes through the user's browser.
-- **Redirect URI** — the URL Google is allowed to send the user back to. Must be **exactly** registered in Cloud Console (e.g. `http://localhost:8000/google/auth`). Security feature: prevents someone from setting up a fake site that uses our client_id to phish.
-- **Scopes** — what we're asking Google for permission to see. We ask for `openid email profile`:
-  - `openid` — enables OpenID Connect (the flavor of OAuth that returns user identity, not just access)
-  - `email` — the user's email address
-  - `profile` — name and picture
-- **State** — a random one-time string we put in the session before redirecting to Google, and Google echoes back. If it doesn't match on return → reject. Protects against CSRF.
-- **Code** — a short-lived one-time string Google gives the user to hand back to our app. We then exchange it (with our client_secret) for the real user info. Why this two-step dance? Because the code is visible in the user's browser URL bar (less sensitive), while the actual user info exchange happens server-to-server (more sensitive).
-- **`google_sub`** — Google's permanent unique ID for this user account. We key on this, not email, because emails can change but `sub` is forever.
-- **Allowlist** — our `InviteAllowList` table. After Google says "yes this is mercurymcindoe@gmail.com," we still check `is this email on our invite list?` before creating an account. This is what makes K2 a closed group.
-
-### The two routes you keep mixing up
-
-- **`/google/`** — start of sign-in. YOU navigate here. The app builds the URL and redirects to Google.
-- **`/google/auth`** — the callback. GOOGLE redirects here after you sign in. Never visit it directly — there's no state in your session yet, so Authlib raises `MismatchingStateError`.
-
----
-
-## Files
-
-```
-K2/
-├── README.md                  ← you are here
-├── .claude/
-│   └── launch.json            ← dev server config
-├── frontend/                  ← React + Vite + Tailwind
-│   ├── src/App.jsx
-│   ├── src/index.css          ← @import "tailwindcss";
-│   ├── vite.config.js
-│   └── package.json
-└── backend/                   ← Flask
-    ├── app.py                 ← app + routes + OAuth wiring
-    ├── models.py              ← 5 SQLAlchemy models
-    ├── requirements.txt
-    ├── .env                   ← secrets (gitignored)
-    ├── app.db                 ← SQLite
-    ├── migrations/            ← Alembic
-    └── .venv/                 ← virtualenv
+```bash
+sqlite3 backend/app.db ".tables"
+sqlite3 backend/app.db "SELECT id, username FROM users;"
 ```
 
----
+### Seed gyms (or do it from the admin page once you're admin)
 
-## Where I am right now
+```bash
+sqlite3 backend/app.db \
+  "INSERT INTO gyms (name, created_at) VALUES ('Progression', datetime('now'));"
+```
 
-**Working:** sign-in via Google, allowlist gating, session cookies, `/api/auth/me`.
+### Reset everything
 
-**My user row exists** with `username: null` — the design says I should pick a username on first login. That's the next thing to build.
-
-## Next session (in priority order)
-
-1. **Username-selection endpoint** — `PATCH /api/users/me` to set username (validate: alphanumeric, 3–30 chars, unique). Frontend will redirect to onboarding when `username: null`.
-2. **Logout endpoint** — `POST /api/auth/logout`. One-liner with `logout_user()`.
-3. **Rename routes** to match the design: `/google/` → `/api/auth/google/login`, `/google/auth` → `/api/auth/google/callback`. Update the redirect URI in Google Cloud Console to match.
-4. **CORS** — let `localhost:5173` (Vite) talk to `localhost:8000` (Flask). `flask-cors` is already installed.
-5. **Posts API** — the core feature. `POST /api/posts` (multipart with photo), `GET /api/posts` (feed), edit, delete.
-6. **Photo storage** — local `media/` folder, served at `/media/<path>`.
-7. **Reactions, Users (stats), Projects** — in that order.
-
-Then frontend wires up to it.
-
----
-
-## Gotchas I hit (so I don't hit them again)
-
-- `db.Json` is wrong — it's `db.JSON` (uppercase). Will `AttributeError`.
-- `SQLALCHEMY_DATABASE_URL` is wrong — it's `SQLALCHEMY_DATABASE_URI`. Silently ignored otherwise.
-- `app['SECRET_KEY'] = ...` is wrong — Flask isn't a dict. Use `app.config['SECRET_KEY'] = ...` or `app.secret_key = ...`.
-- `import models` must come **after** `db = SQLAlchemy(app)` (or you get a circular import).
-- Authlib v1 requires `requests` to be installed manually — it's not pulled in automatically.
-- Don't run via `python app.py` — use `flask --app app run`. Otherwise circular import (see "Backend" section above).
-- macOS port 5000 is owned by AirPlay Receiver. Use 8000.
-- `parse_id_token(token)` requires `nonce` in modern Authlib. Use `token.get('userinfo')` instead.
-- After changing port, update the redirect URI in Google Cloud Console — propagation can take a few minutes.
-- Visit `/google/`, never `/google/auth` directly (state mismatch).
+```bash
+cd backend
+rm app.db
+rm -rf media
+flask --app app db upgrade
+```

@@ -16,15 +16,15 @@ function timeAgo(iso) {
 
 function outcomeBadge(post) {
   if (post.is_flash) {
-    return { text: '⚡ Flash', className: 'bg-amber-100 text-amber-700' }
+    return { text: '⚡ Flash', className: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' }
   }
   if (post.outcome === 'sent') {
-    return { text: 'Sent', className: 'bg-emerald-100 text-emerald-700' }
+    return { text: 'Sent', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' }
   }
   if (post.outcome === 'projecting') {
-    return { text: 'Project-ing', className: 'bg-blue-100 text-blue-700' }
+    return { text: 'Project-ing', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' }
   }
-  return { text: 'Gave up', className: 'bg-stone-100 text-stone-700' }
+  return { text: 'Gave up', className: 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300' }
 }
 
 const DEFAULT_EMOJIS = ['🔥', '💪', '👏', '😱', '😂']
@@ -73,7 +73,7 @@ export default function PostCard({
   }
 
   return (
-    <article className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+    <article className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4">
         <Link to={`/u/${post.user.username}`}>
@@ -88,12 +88,18 @@ export default function PostCard({
         <div className="flex-1 leading-tight">
           <Link
             to={`/u/${post.user.username}`}
-            className="text-sm font-medium text-stone-900 hover:underline"
+            className="text-sm font-medium text-stone-900 dark:text-stone-100 hover:underline"
           >
             {post.user.display_name}
           </Link>
-          <div className="text-xs text-stone-400">
-            @{post.user.username} · {timeAgo(post.climbed_at)}
+          <div className="text-xs text-stone-400 dark:text-stone-500">
+            @{post.user.username} ·{' '}
+            <Link
+              to={`/posts/${post.id}`}
+              className="hover:underline hover:text-stone-600"
+            >
+              {timeAgo(post.climbed_at)}
+            </Link>
           </div>
         </div>
 
@@ -103,7 +109,7 @@ export default function PostCard({
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               disabled={deleting}
-              className="text-stone-400 hover:text-stone-700 text-lg px-2 leading-none disabled:opacity-50"
+              className="text-stone-400 dark:text-stone-500 hover:text-stone-700 text-lg px-2 leading-none disabled:opacity-50"
               aria-label="Post options"
             >
               ⋯
@@ -115,21 +121,21 @@ export default function PostCard({
                   className="fixed inset-0 z-10"
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-7 z-20 bg-white border border-stone-200 rounded-lg shadow-md py-1 min-w-[120px]">
+                <div className="absolute right-0 top-7 z-20 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg shadow-md py-1 min-w-[120px]">
                   <button
                     type="button"
                     onClick={() => {
                       setMenuOpen(false)
                       onEdit(post)
                     }}
-                    className="block w-full text-left px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
+                    className="block w-full text-left px-3 py-1.5 text-sm text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800/50"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="block w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-stone-50"
+                    className="block w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-stone-50 dark:hover:bg-stone-800/50"
                   >
                     Delete
                   </button>
@@ -144,7 +150,7 @@ export default function PostCard({
       <img
         src={`${api.baseUrl}/media/${post.photo_path}`}
         alt=""
-        className="w-full mt-3 aspect-square object-cover bg-stone-100"
+        className="w-full mt-3 aspect-square object-cover bg-stone-100 dark:bg-stone-800"
       />
 
       {/* Meta */}
@@ -156,13 +162,13 @@ export default function PostCard({
           >
             {badge.text}
           </span>
-          <span className="ml-auto text-xs text-stone-500">
+          <span className="ml-auto text-xs text-stone-500 dark:text-stone-400">
             {post.attempts_bucket} attempts
           </span>
         </div>
 
         {post.notes && (
-          <p className="mt-2 text-sm text-stone-700 whitespace-pre-wrap">
+          <p className="mt-2 text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap">
             {post.notes}
           </p>
         )}
@@ -180,8 +186,8 @@ export default function PostCard({
                 disabled={reactingEmoji === emoji}
                 className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm transition disabled:opacity-50 ${
                   mine
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
                 aria-label={`React with ${emoji}`}
               >

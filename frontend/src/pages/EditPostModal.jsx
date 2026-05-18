@@ -55,17 +55,17 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto shadow-xl"
+        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Edit post</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-stone-500 hover:text-stone-900 text-xl leading-none"
+            className="text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-xl leading-none"
             aria-label="Close"
           >
             ✕
@@ -73,20 +73,20 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
         </div>
 
         {/* Photo preview (not editable) */}
-        <div className="aspect-square w-full bg-stone-100 rounded-xl overflow-hidden border border-stone-200">
+        <div className="aspect-square w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden border border-stone-200 dark:border-stone-800">
           <img
             src={`${api.baseUrl}/media/${post.photo_path}`}
             alt=""
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="text-xs text-stone-400 mt-1 text-center">
+        <div className="text-xs text-stone-400 dark:text-stone-500 mt-1 text-center">
           Photo can't be changed
         </div>
 
         {/* Grade */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Grade
           </label>
           <div className="mt-1 flex gap-2 items-center">
@@ -100,8 +100,8 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
                 onClick={() => handleScaleChange(s)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                   gradeScale === s
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {label}
@@ -116,9 +116,9 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
                 const n = parseInt(e.target.value)
                 setGradeValue(Number.isNaN(n) ? gradeMin : n)
               }}
-              className="w-16 ml-2 px-2 py-1.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="w-16 ml-2 px-2 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
             />
-            <span className="text-sm text-stone-500">
+            <span className="text-sm text-stone-500 dark:text-stone-400">
               ({gradeMin}–{gradeMax})
             </span>
           </div>
@@ -126,7 +126,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
 
         {/* Outcome */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Outcome
           </label>
           <div className="mt-1 grid grid-cols-3 gap-2">
@@ -137,8 +137,8 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
                 onClick={() => setOutcome(v)}
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   outcome === v
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {label}
@@ -149,7 +149,7 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
 
         {/* Attempts */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Attempts
           </label>
           <div className="mt-1 grid grid-cols-5 gap-2">
@@ -160,8 +160,8 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
                 onClick={() => setAttempts(a)}
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   attempts === a
-                    ? 'bg-stone-900 text-white'
-                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
                 }`}
               >
                 {a}
@@ -172,8 +172,8 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
 
         {/* Notes */}
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700">
-            Notes <span className="text-stone-400">(optional)</span>
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Notes <span className="text-stone-400 dark:text-stone-500">(optional)</span>
           </label>
           <textarea
             value={notes}
@@ -181,16 +181,16 @@ export default function EditPostModal({ post, onClose, onUpdated }) {
             maxLength={2000}
             rows={2}
             placeholder="Beta, thoughts, etc."
-            className="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
         </div>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="mt-5 w-full bg-stone-900 text-white rounded-lg px-4 py-2 font-medium hover:bg-stone-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Saving…' : 'Save'}
         </button>

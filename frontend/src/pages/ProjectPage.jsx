@@ -5,15 +5,15 @@ import PostCard from '../components/PostCard'
 
 function statusBadge(project) {
   if (project.is_expired && project.status === 'active') {
-    return { text: 'Stale', className: 'bg-stone-200 text-stone-600' }
+    return { text: 'Stale', className: 'bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-400' }
   }
   if (project.status === 'active') {
-    return { text: 'Active', className: 'bg-blue-100 text-blue-700' }
+    return { text: 'Active', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' }
   }
   if (project.status === 'sent') {
-    return { text: '✓ Sent', className: 'bg-emerald-100 text-emerald-700' }
+    return { text: '✓ Sent', className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' }
   }
-  return { text: 'Abandoned', className: 'bg-stone-100 text-stone-700' }
+  return { text: 'Abandoned', className: 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300' }
 }
 
 export default function ProjectPage({ currentUser }) {
@@ -64,7 +64,7 @@ export default function ProjectPage({ currentUser }) {
       window.alert(data?.error || 'Failed to delete')
       return
     }
-    navigate(`/u/${currentUser.username}`)
+    navigate('/')
   }
 
   async function handlePostUpdated(updatedPost) {
@@ -99,26 +99,26 @@ export default function ProjectPage({ currentUser }) {
     : ''
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white sticky top-0 z-10">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight">
             K2
           </Link>
-          <Link to="/" className="text-sm text-stone-500 hover:text-stone-900">
+          <Link to="/" className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
             ← Feed
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading ? (
-          <div className="text-center text-stone-400 py-12">Loading…</div>
+          <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         ) : project ? (
           <>
             {/* Project header card */}
-            <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
-              <div className="aspect-square bg-stone-100">
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden">
+              <div className="aspect-square bg-stone-100 dark:bg-stone-800">
                 <img
                   src={`${api.baseUrl}/media/${project.photo_path}`}
                   alt=""
@@ -131,7 +131,7 @@ export default function ProjectPage({ currentUser }) {
                     <h1 className="text-2xl font-bold tracking-tight">
                       {project.title}
                     </h1>
-                    <div className="text-sm text-stone-500 mt-1">
+                    <div className="text-sm text-stone-500 dark:text-stone-400 mt-1">
                       {gradeLabel} ·{' '}
                       <Link
                         to={`/u/${project.user_id}`}
@@ -152,7 +152,7 @@ export default function ProjectPage({ currentUser }) {
                 <div className="grid grid-cols-2 gap-4 mt-5">
                   <div>
                     <div className="text-2xl font-bold">{project.sessions}</div>
-                    <div className="text-[10px] text-stone-500 uppercase tracking-wide">
+                    <div className="text-[10px] text-stone-500 dark:text-stone-400 uppercase tracking-wide">
                       Sessions
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export default function ProjectPage({ currentUser }) {
                     <div className="text-2xl font-bold">
                       {project.attempts_lower_bound}+
                     </div>
-                    <div className="text-[10px] text-stone-500 uppercase tracking-wide">
+                    <div className="text-[10px] text-stone-500 dark:text-stone-400 uppercase tracking-wide">
                       Attempts
                     </div>
                   </div>
@@ -168,14 +168,14 @@ export default function ProjectPage({ currentUser }) {
 
                 {/* Owner actions */}
                 {isOwner && (
-                  <div className="mt-5 pt-4 border-t border-stone-100 flex flex-wrap gap-2">
+                  <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-800 flex flex-wrap gap-2">
                     {project.status === 'active' ? (
                       <>
                         <button
                           type="button"
                           onClick={() => setStatus('sent')}
                           disabled={updating}
-                          className="flex-1 min-w-[120px] bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50"
+                          className="flex-1 min-w-[120px] bg-emerald-600 dark:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 transition disabled:opacity-50"
                         >
                           ✓ Mark as sent
                         </button>
@@ -183,7 +183,7 @@ export default function ProjectPage({ currentUser }) {
                           type="button"
                           onClick={() => setStatus('abandoned')}
                           disabled={updating}
-                          className="flex-1 min-w-[120px] bg-stone-100 text-stone-700 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-200 transition disabled:opacity-50"
+                          className="flex-1 min-w-[120px] bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
                         >
                           Abandon
                         </button>
@@ -193,7 +193,7 @@ export default function ProjectPage({ currentUser }) {
                         type="button"
                         onClick={() => setStatus('active')}
                         disabled={updating}
-                        className="flex-1 bg-stone-100 text-stone-700 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-200 transition disabled:opacity-50"
+                        className="flex-1 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
                       >
                         Re-open
                       </button>
@@ -201,7 +201,7 @@ export default function ProjectPage({ currentUser }) {
                     <button
                       type="button"
                       onClick={handleDelete}
-                      className="text-xs text-stone-400 hover:text-red-600 px-2"
+                      className="text-xs text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 px-2"
                     >
                       Delete project
                     </button>
@@ -212,11 +212,11 @@ export default function ProjectPage({ currentUser }) {
 
             {/* Linked posts */}
             <div className="mt-6">
-              <h2 className="text-sm font-medium text-stone-700 mb-3">
+              <h2 className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-3">
                 Sessions ({project.posts.length})
               </h2>
               {project.posts.length === 0 ? (
-                <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center text-stone-500 text-sm">
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
                   No linked posts yet.
                 </div>
               ) : (

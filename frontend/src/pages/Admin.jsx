@@ -3,41 +3,41 @@ import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
 
 export default function Admin({ currentUser }) {
+  // ─── Invites ──────────────────────────────────────────────────────────────
   const [invites, setInvites] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loadingInvites, setLoadingInvites] = useState(true)
   const [newEmail, setNewEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
+  const [submittingEmail, setSubmittingEmail] = useState(false)
+  const [emailError, setEmailError] = useState(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const loadInvites = useCallback(async () => {
+    setLoadingInvites(true)
     const { ok, data } = await api.listInvites()
-    setLoading(false)
+    setLoadingInvites(false)
     if (ok) setInvites(data.invites)
   }, [])
 
   useEffect(() => {
-    load()
-  }, [load])
+    loadInvites()
+  }, [loadInvites])
 
-  async function handleAdd(e) {
+  async function handleAddInvite(e) {
     e.preventDefault()
     const email = newEmail.trim().toLowerCase()
     if (!email) return
-    setError(null)
-    setSubmitting(true)
+    setEmailError(null)
+    setSubmittingEmail(true)
     const { ok, data } = await api.addInvite(email)
-    setSubmitting(false)
+    setSubmittingEmail(false)
     if (!ok) {
-      setError(data?.error || 'Failed to add')
+      setEmailError(data?.error || 'Failed to add')
       return
     }
     setNewEmail('')
-    // refresh the list so the new entry shows up
-    load()
+    loadInvites()
   }
 
-  async function handleRemove(email) {
+  async function handleRemoveInvite(email) {
     if (!window.confirm(`Remove ${email} from the allowlist?`)) return
     const { ok, data } = await api.removeInvite(email)
     if (!ok) {
@@ -47,90 +47,271 @@ export default function Admin({ currentUser }) {
     setInvites((prev) => prev.filter((i) => i.email !== email))
   }
 
+  // ─── Gyms ─────────────────────────────────────────────────────────────────
+  const [gyms, setGyms] = useState([])
+  const [loadingGyms, setLoadingGyms] = useState(true)
+  const [newGymName, setNewGymName] = useState('')
+  const [submittingGym, setSubmittingGym] = useState(false)
+  const [gymError, setGymError] = useState(null)
+  const [editingGymId, setEditingGymId] = useState(null)
+  const [editGymName, setEditGymName] = useState('')
+
+  const loadGyms = useCallback(async () => {
+    setLoadingGyms(true)
+    const { ok, data } = await api.listGyms()
+    setLoadingGyms(false)
+    if (ok) setGyms(data.gyms)
+  }, [])
+
+  useEffect(() => {
+    loadGyms()
+  }, [loadGyms])
+
+  async function handleAddGym(e) {
+    e.preventDefault()
+    const name = newGymName.trim()
+    if (!name) return
+    setGymError(null)
+    setSubmittingGym(true)
+    const { ok, data } = await api.addGym(name)
+    setSubmittingGym(false)
+    if (!ok) {
+      setGymError(data?.error || 'Failed to add gym')
+      return
+    }
+    setNewGymName('')
+    loadGyms()
+  }
+
+  function startEditGym(gym) {
+    setEditingGymId(gym.id)
+    setEditGymName(gym.name)
+  }
+
+  async function saveEditGym(id) {
+    const name = editGymName.trim()
+    if (!name) return
+    const { ok, data } = await api.updateGym(id, name)
+    if (!ok) {
+      window.alert(data?.error || 'Failed to rename')
+      return
+    }
+    setGyms((prev) => prev.map((g) => (g.id === id ? data : g)))
+    setEditingGymId(null)
+    setEditGymName('')
+  }
+
+  async function handleRemoveGym(gym) {
+    if (
+      !window.confirm(
+        `Remove "${gym.name}"? It must not be referenced by any plans.`
+      )
+    )
+      return
+    const { ok, data } = await api.removeGym(gym.id)
+    if (!ok) {
+      window.alert(data?.error || 'Failed to remove')
+      return
+    }
+    setGyms((prev) => prev.filter((g) => g.id !== gym.id))
+  }
+
   // Non-admins should never see this page
   if (!currentUser?.is_admin) {
     return <Navigate to="/" replace />
   }
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white sticky top-0 z-10">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight">
             K2
           </Link>
-          <Link to="/" className="text-sm text-stone-500 hover:text-stone-900">
+          <Link to="/" className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
             ← Feed
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-semibold">Invite allowlist</h1>
-        <p className="text-sm text-stone-500 mt-1">
-          Emails listed here can sign in via Google. Anyone else gets a 403.
-        </p>
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6 space-y-10">
+        {/* ─── Invites ─── */}
+        <section>
+          <h1 className="text-2xl font-semibold">Invite allowlist</h1>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+            Emails listed here can sign in via Google. Anyone else gets a 403.
+          </p>
 
-        {/* Add form */}
-        <form
-          onSubmit={handleAdd}
-          className="mt-6 bg-white border border-stone-200 rounded-2xl p-4 flex gap-2"
-        >
-          <input
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="friend@example.com"
-            className="flex-1 px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
-            required
-          />
-          <button
-            type="submit"
-            disabled={submitting || !newEmail.trim()}
-            className="bg-stone-900 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-stone-700 transition disabled:opacity-50"
+          <form
+            onSubmit={handleAddInvite}
+            className="mt-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 flex gap-2"
           >
-            {submitting ? 'Adding…' : 'Add'}
-          </button>
-        </form>
-        {error && (
-          <p className="mt-2 text-sm text-red-600">{error}</p>
-        )}
-
-        {/* List */}
-        <div className="mt-6">
-          {loading ? (
-            <div className="text-center text-stone-400 py-8 text-sm">Loading…</div>
-          ) : invites.length === 0 ? (
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center text-stone-500 text-sm">
-              No invites yet.
-            </div>
-          ) : (
-            <ul className="bg-white border border-stone-200 rounded-2xl divide-y divide-stone-200">
-              {invites.map((inv) => (
-                <li
-                  key={inv.email}
-                  className="flex items-center justify-between px-4 py-3"
-                >
-                  <div>
-                    <div className="text-sm font-medium text-stone-900">
-                      {inv.email}
-                    </div>
-                    <div className="text-xs text-stone-400">
-                      Added {new Date(inv.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(inv.email)}
-                    className="text-xs text-stone-400 hover:text-red-600"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="friend@example.com"
+              className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              required
+            />
+            <button
+              type="submit"
+              disabled={submittingEmail || !newEmail.trim()}
+              className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 text-sm font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
+            >
+              {submittingEmail ? 'Adding…' : 'Add'}
+            </button>
+          </form>
+          {emailError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{emailError}</p>
           )}
-        </div>
+
+          <div className="mt-4">
+            {loadingInvites ? (
+              <div className="text-center text-stone-400 dark:text-stone-500 py-8 text-sm">
+                Loading…
+              </div>
+            ) : invites.length === 0 ? (
+              <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
+                No invites yet.
+              </div>
+            ) : (
+              <ul className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl divide-y divide-stone-200 dark:divide-stone-800">
+                {invites.map((inv) => (
+                  <li
+                    key={inv.email}
+                    className="flex items-center justify-between px-4 py-3"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                        {inv.email}
+                      </div>
+                      <div className="text-xs text-stone-400 dark:text-stone-500">
+                        Added {new Date(inv.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveInvite(inv.email)}
+                      className="text-xs text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ─── Gyms ─── */}
+        <section>
+          <h2 className="text-2xl font-semibold">Gyms</h2>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+            The list of gyms users can pick when creating a plan.
+          </p>
+
+          <form
+            onSubmit={handleAddGym}
+            className="mt-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 flex gap-2"
+          >
+            <input
+              type="text"
+              value={newGymName}
+              onChange={(e) => setNewGymName(e.target.value)}
+              placeholder="Gym name"
+              maxLength={120}
+              className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              required
+            />
+            <button
+              type="submit"
+              disabled={submittingGym || !newGymName.trim()}
+              className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 text-sm font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
+            >
+              {submittingGym ? 'Adding…' : 'Add'}
+            </button>
+          </form>
+          {gymError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{gymError}</p>}
+
+          <div className="mt-4">
+            {loadingGyms ? (
+              <div className="text-center text-stone-400 dark:text-stone-500 py-8 text-sm">
+                Loading…
+              </div>
+            ) : gyms.length === 0 ? (
+              <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
+                No gyms yet.
+              </div>
+            ) : (
+              <ul className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl divide-y divide-stone-200 dark:divide-stone-800">
+                {gyms.map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex items-center justify-between px-4 py-3"
+                  >
+                    {editingGymId === g.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editGymName}
+                          onChange={(e) => setEditGymName(e.target.value)}
+                          maxLength={120}
+                          className="flex-1 mr-3 px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveEditGym(g.id)}
+                          className="text-xs px-3 py-1 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-300"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingGymId(null)
+                            setEditGymName('')
+                          }}
+                          className="ml-2 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <div className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                            {g.name}
+                          </div>
+                          <div className="text-xs text-stone-400 dark:text-stone-500">
+                            Added {new Date(g.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => startEditGym(g)}
+                            className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGym(g)}
+                            className="text-xs text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       </main>
     </div>
   )

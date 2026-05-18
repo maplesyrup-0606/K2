@@ -2,18 +2,18 @@ import { api } from '../api'
 
 export default function Login() {
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex flex-col items-center justify-center p-6">
       <h1 className="text-6xl font-bold tracking-tight">K2</h1>
-      <p className="mt-3 text-stone-500">Climbing log for friends</p>
+      <p className="mt-3 text-stone-500 dark:text-stone-400">Climbing log for friends</p>
 
       <a
         href={api.loginUrl}
-        className="mt-12 inline-flex items-center gap-3 bg-stone-900 text-white rounded-lg px-6 py-3 font-medium hover:bg-stone-700 transition"
+        className="mt-12 inline-flex items-center gap-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-6 py-3 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition"
       >
         <span>Sign in with Google</span>
       </a>
 
-      <p className="mt-8 text-xs text-stone-400">
+      <p className="mt-8 text-xs text-stone-400 dark:text-stone-500">
         Invite-only. Ask the admin to add your email.
       </p>
     </div>

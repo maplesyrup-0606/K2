@@ -12,7 +12,7 @@ function Stat({ label, value }) {
   return (
     <div className="text-center">
       <div className="text-2xl font-bold tracking-tight">{value}</div>
-      <div className="text-[10px] text-stone-500 uppercase tracking-wide mt-0.5">
+      <div className="text-[10px] text-stone-500 dark:text-stone-400 uppercase tracking-wide mt-0.5">
         {label}
       </div>
     </div>
@@ -30,7 +30,7 @@ function GradePyramid({ pyramid, prefix, title }) {
 
   return (
     <div className="mt-5">
-      <div className="text-xs text-stone-500 uppercase tracking-wide mb-2">
+      <div className="text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
         {title}
       </div>
       <div className="space-y-1">
@@ -39,17 +39,17 @@ function GradePyramid({ pyramid, prefix, title }) {
           const width = (count / max) * 100
           return (
             <div key={g} className="flex items-center gap-3">
-              <div className="w-10 text-xs text-stone-700 font-medium">
+              <div className="w-10 text-xs text-stone-700 dark:text-stone-300 font-medium">
                 {prefix}
                 {g}
               </div>
-              <div className="flex-1 bg-stone-100 rounded h-5 overflow-hidden">
+              <div className="flex-1 bg-stone-100 dark:bg-stone-800 rounded h-5 overflow-hidden">
                 <div
                   className="bg-stone-800 h-full"
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <div className="w-6 text-xs text-stone-700 text-right">
+              <div className="w-6 text-xs text-stone-700 dark:text-stone-300 text-right">
                 {count}
               </div>
             </div>
@@ -79,8 +79,12 @@ export default function StatsPanel({ username }) {
     }
   }, [username, window])
 
-  const hardestVLabel =
-    stats?.hardest_v != null ? `V${stats.hardest_v}` : '—'
+  let hardestLabel = '—'
+  if (stats?.hardest_v != null) {
+    hardestLabel = `V${stats.hardest_v}`
+  } else if (stats?.hardest_comp != null) {
+    hardestLabel = `Comp ${stats.hardest_comp}`
+  }
 
   const isEmpty =
     !loading &&
@@ -89,10 +93,10 @@ export default function StatsPanel({ username }) {
     stats.total_sends === 0
 
   return (
-    <div className="bg-white border border-stone-200 rounded-2xl p-5">
+    <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5">
       {/* Window selector */}
       <div className="flex justify-between items-center">
-        <div className="text-sm font-medium text-stone-700">Stats</div>
+        <div className="text-sm font-medium text-stone-700 dark:text-stone-300">Stats</div>
         <div className="flex gap-1">
           {WINDOWS.map(([key, label]) => (
             <button
@@ -101,8 +105,8 @@ export default function StatsPanel({ username }) {
               onClick={() => setWindow(key)}
               className={`px-2.5 py-1 rounded text-xs font-medium transition ${
                 window === key
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
               }`}
             >
               {label}
@@ -112,13 +116,13 @@ export default function StatsPanel({ username }) {
       </div>
 
       {loading ? (
-        <div className="text-center text-stone-400 py-6 text-sm">Loading…</div>
+        <div className="text-center text-stone-400 dark:text-stone-500 py-6 text-sm">Loading…</div>
       ) : !stats ? (
-        <div className="text-center text-stone-400 py-6 text-sm">
+        <div className="text-center text-stone-400 dark:text-stone-500 py-6 text-sm">
           Couldn't load stats.
         </div>
       ) : isEmpty ? (
-        <div className="text-center text-stone-400 py-6 text-sm">
+        <div className="text-center text-stone-400 dark:text-stone-500 py-6 text-sm">
           No climbs in this window.
         </div>
       ) : (
@@ -128,7 +132,7 @@ export default function StatsPanel({ username }) {
             <Stat label="Sessions" value={stats.sessions} />
             <Stat label="Sends" value={stats.total_sends} />
             <Stat label="Flashes" value={stats.flash_count} />
-            <Stat label="Hardest" value={hardestVLabel} />
+            <Stat label="Hardest sent" value={hardestLabel} />
           </div>
 
           <GradePyramid

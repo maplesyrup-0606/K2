@@ -37,6 +37,7 @@ export const api = {
     }),
   listPosts: (offset = 0, limit = 20) =>
     request(`/api/posts?offset=${offset}&limit=${limit}`),
+  getPost: (id) => request(`/api/posts/${id}`),
   deletePost: (id) =>
     request(`/api/posts/${id}`, { method: 'DELETE' }),
   updatePost: (id, body) =>
@@ -74,6 +75,36 @@ export const api = {
     }),
   deleteProject: (id) =>
     request(`/api/projects/${id}`, { method: 'DELETE' }),
+  listGyms: () => request('/api/gyms'),
+  addGym: (name) =>
+    request('/api/admin/gyms', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  updateGym: (id, name) =>
+    request(`/api/admin/gyms/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+  removeGym: (id) =>
+    request(`/api/admin/gyms/${id}`, { method: 'DELETE' }),
+  listPlans: () => request('/api/plans'),
+  createPlan: (body) =>
+    request('/api/plans', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  joinPlan: (planId) =>
+    request(`/api/plans/${planId}/attendees`, { method: 'POST' }),
+  leavePlan: (planId) =>
+    request(`/api/plans/${planId}/attendees`, { method: 'DELETE' }),
+  updatePlan: (planId, body) =>
+    request(`/api/plans/${planId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deletePlan: (planId) =>
+    request(`/api/plans/${planId}`, { method: 'DELETE' }),
   listInvites: () => request('/api/admin/invites'),
   addInvite: (email) =>
     request('/api/admin/invites', {
@@ -83,5 +114,11 @@ export const api = {
   removeInvite: (email) =>
     request(`/api/admin/invites/${encodeURIComponent(email)}`, {
       method: 'DELETE',
+    }),
+  listNotifications: () => request('/api/notifications'),
+  markNotificationsRead: (ids) =>
+    request('/api/notifications/read', {
+      method: 'POST',
+      body: JSON.stringify(ids ? { ids } : {}),
     }),
 }

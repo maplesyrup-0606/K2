@@ -8,14 +8,51 @@ GRADE_SCALE = db.Enum('v', 'comp', name='grade_scale')
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
 
-    id = db.Column(db.Integer, primary_key=True)
-    google_sub = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    display_name = db.Column(db.String(120), nullable=False)
+    id = db.Column(
+        db.Integer, 
+        primary_key=True
+    )
+    
+    google_sub = db.Column(
+        db.String(255), 
+        unique=True, 
+        nullable=False, 
+        index=True
+    )
+    
+    email = db.Column(
+        db.String(255), 
+        unique=True, 
+        nullable=False, 
+        index=True
+    )
+    
+    username = db.Column(
+        db.String(64), 
+        unique=True, 
+        nullable=False, 
+        index=True
+    )
+    
+    display_name = db.Column(
+        db.String(120), 
+        nullable=False
+    )
+    
     avatar_url = db.Column(db.String(500))
-    is_admin = db.Column(db.Boolean, nullable=False, default=False)
-    is_onboarded = db.Column(db.Boolean, nullable=False, default=False)
+    
+    is_admin = db.Column(
+        db.Boolean, 
+        nullable=False, 
+        default=False
+    )
+    
+    is_onboarded = db.Column(
+        db.Boolean, 
+        nullable=False, 
+        default=False
+    )
+    
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -30,6 +67,7 @@ class Post(db.Model):
     __tablename__ = 'posts'
 
     id = db.Column(db.Integer, primary_key=True)
+    
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('users.id'),
@@ -115,3 +153,116 @@ class InviteAllowList(db.Model):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+class Gym(db.Model):
+    __tablename__ = 'gyms'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def __repr__(self):
+        return f'<Gym {self.name}>'
+
+
+class Plan(db.Model):
+    __tablename__ = 'plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # organizer
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+        index=True,
+    )
+    gym_id = db.Column(
+        db.Integer,
+        db.ForeignKey('gyms.id'),
+        nullable=False,
+        index=True,
+    )
+    note = db.Column(db.Text)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    planned_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    # relations
+    user = db.relationship('User', backref='plans')
+    gym = db.relationship('Gym', backref='plans')
+
+
+class PlanAttendee(db.Model):
+    __tablename__ = 'plan_attendees'
+
+    plan_id = db.Column(
+        db.Integer,
+        db.ForeignKey('plans.id'),
+        primary_key=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    plan = db.relationship('Plan', backref='attendees')
+    user = db.relationship('User')
+    
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+        index=True,
+    )
+    actor_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+    )
+    type = db.Column(
+        db.Enum('reaction', 'plan_join', name='notification_type'),
+        nullable=False,
+    )
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
+    plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'))
+    emoji = db.Column(db.String(16))
+    is_read = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    # relations
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    post = db.relationship('Post', foreign_keys=[post_id])
+    plan = db.relationship('Plan', foreign_keys=[plan_id])

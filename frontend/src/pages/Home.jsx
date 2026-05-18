@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Composer from './Composer'
 import PostCard from '../components/PostCard'
+import NotificationsBell from '../components/NotificationsBell'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
@@ -57,14 +59,30 @@ export default function Home({ user, onLogout }) {
 
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold tracking-tight">K2</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              to="/plans"
+              className="hidden sm:inline text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+            >
+              Plans
+            </Link>
+            <NotificationsBell />
+            <ThemeToggle />
+            {user.is_admin && (
+              <Link
+                to="/admin/invites"
+                className="hidden sm:inline text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+              >
+                Admin
+              </Link>
+            )}
             <Link
               to={`/u/${user.username}`}
-              className="flex items-center gap-3 hover:opacity-70 transition"
+              className="flex items-center gap-2 hover:opacity-70 transition"
             >
               {user.avatar_url && (
                 <img
@@ -73,24 +91,17 @@ export default function Home({ user, onLogout }) {
                   alt=""
                 />
               )}
-              <div className="flex flex-col items-end leading-tight">
-                <span className="text-sm font-medium text-stone-800">
+              <div className="hidden sm:flex flex-col items-end leading-tight">
+                <span className="text-sm font-medium text-stone-800 dark:text-stone-200">
                   {user.display_name}
                 </span>
-                <span className="text-xs text-stone-400">@{user.username}</span>
+                <span className="text-xs text-stone-400 dark:text-stone-500">@{user.username}</span>
               </div>
             </Link>
-            {user.is_admin && (
-              <Link
-                to="/admin/invites"
-                className="text-sm text-stone-500 hover:text-stone-900"
-              >
-                Admin
-              </Link>
-            )}
             <button
               onClick={logout}
-              className="ml-2 text-sm text-stone-500 hover:text-stone-900"
+              className="hidden sm:inline text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+              aria-label="Log out"
             >
               Logout
             </button>
@@ -98,23 +109,23 @@ export default function Home({ user, onLogout }) {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading && (
-          <div className="text-center text-stone-400 py-12">Loading…</div>
+          <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         )}
 
         {!loading && error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 text-sm">
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl p-4 text-sm">
             {error}
           </div>
         )}
 
         {!loading && !error && posts.length === 0 && (
-          <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-8 text-center">
             <h2 className="text-xl font-semibold">
               Welcome, {user.display_name.split(' ')[0]}.
             </h2>
-            <p className="mt-2 text-stone-500">
+            <p className="mt-2 text-stone-500 dark:text-stone-400">
               No posts yet — tap the + to log your first climb.
             </p>
           </div>
@@ -137,7 +148,7 @@ export default function Home({ user, onLogout }) {
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="text-sm text-stone-500 hover:text-stone-900 disabled:opacity-50"
+                  className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
                 >
                   {loadingMore ? 'Loading…' : 'Load more'}
                 </button>
@@ -150,7 +161,7 @@ export default function Home({ user, onLogout }) {
       <button
         type="button"
         onClick={() => setComposerOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-stone-900 text-white text-3xl leading-none shadow-lg hover:bg-stone-700 active:scale-95 transition"
+        className="fixed bottom-20 sm:bottom-6 right-6 h-14 w-14 rounded-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-3xl leading-none shadow-lg hover:bg-stone-700 dark:hover:bg-stone-300 active:scale-95 transition z-30"
         aria-label="New post"
       >
         +

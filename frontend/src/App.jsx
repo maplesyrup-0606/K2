@@ -6,7 +6,10 @@ import Onboarding from './pages/Onboarding'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import ProjectPage from './pages/ProjectPage'
+import PostPage from './pages/PostPage'
+import Plans from './pages/Plans'
 import Admin from './pages/Admin'
+import BottomNav from './components/BottomNav'
 
 export default function App() {
   // me === undefined: still loading
@@ -29,7 +32,7 @@ export default function App() {
 
   if (me === undefined) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center text-stone-400">
+      <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center text-stone-400 dark:text-stone-500">
         Loading…
       </div>
     )
@@ -91,6 +94,30 @@ export default function App() {
           }
         />
         <Route
+          path="/posts/:id"
+          element={
+            !me ? (
+              <Navigate to="/login" replace />
+            ) : !me.is_onboarded ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <PostPage currentUser={me} />
+            )
+          }
+        />
+        <Route
+          path="/plans"
+          element={
+            !me ? (
+              <Navigate to="/login" replace />
+            ) : !me.is_onboarded ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <Plans currentUser={me} />
+            )
+          }
+        />
+        <Route
           path="/admin/invites"
           element={
             !me ? (
@@ -104,6 +131,8 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {me && me.is_onboarded && <BottomNav currentUser={me} />}
     </BrowserRouter>
   )
 }
