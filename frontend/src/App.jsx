@@ -9,6 +9,7 @@ import ProjectPage from './pages/ProjectPage'
 import PostPage from './pages/PostPage'
 import Plans from './pages/Plans'
 import Admin from './pages/Admin'
+import Install from './pages/Install'
 import BottomNav from './components/BottomNav'
 
 export default function App() {
@@ -129,6 +130,7 @@ export default function App() {
             )
           }
         />
+        <Route path="/install" element={<Install />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

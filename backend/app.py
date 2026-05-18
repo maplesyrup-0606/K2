@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from flask import Flask, url_for, redirect, abort, request, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
@@ -9,17 +10,18 @@ from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timezone, timedelta
 from PIL import Image, UnidentifiedImageError
 from functools import wraps
+import os, re, secrets, uuid, requests
 
-import os, re, secrets, uuid
 
 load_dotenv()
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 CORS(
     app,
-    resources={r"/api/*": {"origins": "http://localhost:5173"}},
+    resources={r"/api/*": {"origins": FRONTEND_URL}},
     supports_credentials=True,
 )
 
@@ -29,7 +31,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, 'app
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = False  # set True in production (HTTPS only)
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 # 10MB
 
 MEDIA_DIR = os.path.join(BASE_DIR, 'media')
@@ -54,7 +56,6 @@ oauth.register(
 @app.route('/api/health', methods=['GET'])
 def get_health():
     return {'ok': True}
-
 
 def admin_required(f):
     @wraps(f)
@@ -82,6 +83,36 @@ def list_invites():
         ]
     }
 
+def send_invite_email(to_email):
+    api_key = os.getenv('RESEND_API_KEY')
+    if not api_key:
+        return
+    app_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    html = f"""
+    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0c0a09;color:#f5f5f4;border-radius:12px;">
+      <h1 style="font-size:48px;font-weight:800;color:#863bff;margin:0 0 8px;">K2</h1>
+      <p style="color:#a8a29e;margin:0 0 24px;">Climbing log for friends</p>
+      <p style="margin:0 0 32px;">You've been invited. Tap below to install the app and get started.</p>
+      <a href="{app_url}/install" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Get started →</a>
+    </div>
+    """
+    try:
+        requests.post(
+            'https://api.resend.com/emails',
+            headers={'Authorization': f'Bearer {api_key}'},
+            json={
+                'from': 'K2 <onboarding@resend.dev>',
+                'to': to_email,
+                'subject': "You've been invited to K2",
+                'html': html,
+            },
+            timeout=10,
+        )
+    except Exception as e:
+        app.logger.error(f'Failed to send invite email to {to_email}: {e}')
+
+
+
 @app.route('/api/admin/invites', methods=['POST'])
 @admin_required
 def add_invite():
@@ -97,7 +128,7 @@ def add_invite():
             invited_by=current_user.id,
         ))
         db.session.commit()
-
+        send_invite_email(email)
     return {
         'email': email,
         'invited_by': current_user.id,
@@ -116,7 +147,7 @@ def remove_invite(email):
     
 @app.route('/api/auth/google/login')
 def google_login():
-    redirect_uri = url_for('google_callback', _external=True)
+    redirect_uri = os.getenv('OAUTH_REDIRECT_URI', url_for('google_callback', _external=True))
     return oauth.google.authorize_redirect(redirect_uri)
 
 def generate_unique_username():

@@ -1,8 +1,24 @@
 # K2
 
-A private "climbing twitter" for a small friend group of indoor boulderers. Log your sessions, react to your friends' climbs, see who's planning to go to the gym this week, track the projects you're working on.
+A private climbing log for a small friend group of indoor boulderers. Log your sessions, react to your friends' climbs, see who's planning to go to the gym this week, and track the projects you're working on.
 
-It's invite-only — only emails on an allowlist can sign in.
+Invite-only — only emails on an allowlist can sign in. Admins manage the allowlist from the app.
+
+---
+
+## Features
+
+- Posts with photos, grade, outcome, attempts
+- Emoji reactions
+- Per-user profile with stats and grade pyramids
+- Projects with status tracking (active / sent / abandoned)
+- Intent board — who's climbing when, with join/leave
+- Notifications (reactions to your posts, joins on your plans)
+- Admin panel — invite allowlist and gym management
+- Dark mode (manual toggle + system preference)
+- Mobile-first with bottom-tab navigation
+- PWA — installable as a native app on iOS, Android, and desktop
+- Invite emails via Resend with install instructions
 
 ---
 
@@ -12,122 +28,57 @@ It's invite-only — only emails on an allowlist can sign in.
 |---|---|
 | Frontend | React 19, Vite 8, Tailwind v4, React Router v7 |
 | Backend | Flask 3, SQLAlchemy 2, Flask-Migrate (Alembic) |
-| Database | SQLite (single file on disk) |
+| Database | SQLite |
 | Auth | Google OAuth via Authlib, sessions via Flask-Login |
 | Media | Local filesystem at `backend/media/`, served by Flask |
-| Image handling | Pillow for upload validation |
-
-No external services besides Google OAuth — everything runs locally.
-
----
-
-## How it works
-
-The frontend (React SPA) and backend (Flask JSON API) are two separate apps that talk over HTTP:
-
-```
-   ┌──────────────────────┐       JSON / multipart       ┌──────────────────────┐
-   │  React (port 5173)   │  ───────────────────────►   │  Flask (port 8000)   │
-   │  Vite dev server     │  ◄───────────────────────   │  SQLite + media/     │
-   └──────────────────────┘                              └──────────────────────┘
-            ▲
-            │  Sign in with Google
-            ▼
-   ┌──────────────────────┐
-   │  Google OAuth        │
-   └──────────────────────┘
-```
-
-- **Auth**: user clicks "Sign in with Google" → Google → Flask callback validates them, checks if their email is on the invite allowlist, finds-or-creates a `User` row, sets a session cookie.
-- **Posts**: photos upload as multipart to `/api/posts`, saved at `media/<user_id>/<uuid>.jpg`. Feed reads via `/api/posts`.
-- **Reactions, projects, plans, notifications**: separate REST endpoints; the frontend keeps local state in sync via response payloads.
-- **Admin**: a flag on the User row gates `/api/admin/*` routes (invite allowlist + gym management).
-
-Full feature list and deferred items are in `MEMORY.md`-style project notes (out of repo). The short version:
-
-- ✓ Posts (create, feed, edit, delete, permalinks)
-- ✓ Emoji reactions
-- ✓ Per-user profile with stats + grade pyramids
-- ✓ Projects with status, 30-day soft-expire, in-flow creation
-- ✓ Intent board: who's climbing when, with join/leave
-- ✓ Notifications (reactions to your posts, joins on your plans)
-- ✓ Admin: invite allowlist + gym management
-- ✓ Dark mode (manual toggle + system preference)
-- ✓ Mobile responsive with bottom-tab navigation
+| Email | Resend |
+| Deployment | Docker Compose, nginx, gunicorn |
+| Hosting | Tailscale Funnel (public HTTPS, no port forwarding needed) |
+| PWA | vite-plugin-pwa + Workbox |
 
 ---
 
-## Repository layout
+## Architecture
+
+### Development
 
 ```
-K2/
-├── README.md
-├── frontend/                       React + Vite + Tailwind
-│   ├── src/
-│   │   ├── api.js                  Fetch helpers
-│   │   ├── theme.js                Light/dark theme management
-│   │   ├── App.jsx                 Router + auth state
-│   │   ├── main.jsx
-│   │   ├── components/             PostCard, ProjectCard, PlanCard, …
-│   │   └── pages/                  Login, Home, Profile, Plans, Admin, …
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-└── backend/                        Flask
-    ├── app.py                      Routes + payload helpers
-    ├── models.py                   SQLAlchemy models
-    ├── migrations/                 Alembic migration history
-    ├── requirements.txt
-    └── .env                        Secrets (NOT committed)
+Browser (localhost:5173)
+   │
+   ▼
+Vite dev server :5173       ← serves React, proxies /api/* and /media/*
+   │
+   ▼
+Flask dev server :5000      ← API + SQLite
+   │
+   ▼
+Google OAuth
 ```
 
-At runtime the backend also creates:
-- `backend/app.db` — SQLite database
-- `backend/media/` — uploaded photos
-- `backend/.venv/` — Python virtualenv
+### Production
 
-All three are gitignored.
+```
+Internet
+   │ HTTPS (Tailscale Funnel)
+   ▼
+https://goon-pod.tail26570e.ts.net
+   │ HTTP :8080
+   ▼
+nginx container             ← serves built React app, proxies /api/* and /media/*
+   │ HTTP :5000 (internal Docker network)
+   ▼
+Flask/gunicorn container    ← API + SQLite
+```
 
 ---
 
-## Setup
+## Local development setup
 
 ### Prerequisites
 
-You'll need:
-
-- **Python 3.12+**
-- **Node.js 20+**
-- A **Google Cloud project** with an OAuth Web Application client (free)
-
-#### macOS
-
-```bash
-# Homebrew is the easiest way
-brew install python@3.12 node
-```
-
-#### Linux (Debian / Ubuntu)
-
-```bash
-sudo apt update
-sudo apt install python3.12 python3.12-venv python3-pip
-# Node: install nvm and use it
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-# restart shell, then:
-nvm install 20
-```
-
-#### Windows
-
-Easiest path is via [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/):
-
-```powershell
-winget install Python.Python.3.12
-winget install OpenJS.NodeJS.LTS
-```
-
-All commands below assume a Unix-style shell (Git Bash on Windows works, or use WSL).
+- Python 3.12+
+- Node.js 20+
+- A Google Cloud project with an OAuth Web Application client
 
 ### 1. Clone
 
@@ -136,58 +87,50 @@ git clone https://github.com/maplesyrup-0606/K2.git
 cd K2
 ```
 
-### 2. Create a Google OAuth client
-
-You need one to let users sign in. One-time setup:
+### 2. Google OAuth client
 
 1. Go to https://console.cloud.google.com/apis/credentials
-2. Create a new project (or use an existing one)
-3. **Credentials → Create credentials → OAuth client ID**
-4. Application type: **Web application**
-5. Authorized redirect URIs — add:
-   ```
-   http://localhost:8000/api/auth/google/callback
-   ```
-6. Save and copy the **Client ID** and **Client secret**
+2. **Credentials → Create credentials → OAuth client ID → Web application**
+3. Authorized redirect URIs: `http://localhost:5173/api/auth/google/callback`
+4. Authorized JavaScript origins: `http://localhost:5173`
+5. Copy the Client ID and Client secret
 
-### 3. Backend setup
+### 3. Backend
 
 ```bash
 cd backend
 
-# Virtualenv
 python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
-# Dependencies
 pip install -r requirements.txt
 
-# Create .env (paste your Google credentials)
+# Create .env
 cat > .env <<EOF
-GOOGLE_CLIENT_ID=your-client-id-here
-GOOGLE_CLIENT_SECRET=your-client-secret-here
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
 FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+FRONTEND_URL=http://localhost:5173
+OAUTH_REDIRECT_URI=http://localhost:5173/api/auth/google/callback
+RESEND_API_KEY=your-resend-api-key
 EOF
 
-# Create the database
-flask --app app db upgrade
+flask db upgrade
 ```
 
-Now seed yourself into the invite allowlist (otherwise sign-in will 403):
+Seed yourself into the invite allowlist:
 
 ```bash
-sqlite3 app.db "INSERT INTO inviteallowlist (email, created_at) VALUES ('your.email@gmail.com', datetime('now'));"
+python3 -c "
+from app import app, db
+from models import InviteAllowList
+with app.app_context():
+    db.session.add(InviteAllowList(email='you@gmail.com'))
+    db.session.commit()
+"
 ```
 
-After your first successful sign-in, promote yourself to admin so you can use the `/admin` page:
-
-```bash
-sqlite3 app.db "UPDATE users SET is_admin = 1 WHERE email = 'your.email@gmail.com';"
-```
-
-### 4. Frontend setup
-
-In a separate terminal:
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -196,26 +139,110 @@ npm install
 
 ### 5. Run
 
-Backend (in `backend/` with the venv activated):
-
 ```bash
-flask --app app run --debug --port 8000
-```
+# Terminal 1 — backend
+cd backend && source .venv/bin/activate
+flask run --host 0.0.0.0 --port 5000
 
-Frontend (in `frontend/`):
-
-```bash
+# Terminal 2 — frontend
+cd frontend
 npm run dev
 ```
 
 Visit **http://localhost:5173**.
 
-### Notes
+After your first login, promote yourself to admin:
 
-- **Port 8000 for the backend, not 5000**: macOS reserves 5000 for AirPlay Receiver.
-- **Run the backend via `flask --app app run`, not `python app.py`**: avoids a circular-import quirk in the way `app.py` and `models.py` reference each other.
-- **First-time sign-in**: after Google OAuth completes, you'll briefly land on a 404 on the backend's `/` — that's the OAuth redirect target — then the frontend's auth-state will pick you up.
-- **CORS**: backend allows requests from `http://localhost:5173`. If you change either port, update `CORS(...)` in `backend/app.py` accordingly.
+```bash
+cd backend && source .venv/bin/activate
+python3 -c "
+from app import app, db
+from models import User
+with app.app_context():
+    u = User.query.filter_by(email='you@gmail.com').first()
+    u.is_admin = True
+    db.session.commit()
+"
+```
+
+---
+
+## Production deployment
+
+### Prerequisites
+
+- Docker + Docker Compose on the server
+- Tailscale installed and authenticated on the server
+- Funnel enabled in the [Tailscale admin ACL](https://login.tailscale.com/admin/acls):
+  ```json
+  "nodeAttrs": [{ "target": ["autogroup:member"], "attr": ["funnel"] }]
+  ```
+- Google OAuth client with these URIs added:
+  - Redirect URI: `https://<your-ts-hostname>/api/auth/google/callback`
+  - JS origin: `https://<your-ts-hostname>`
+
+### First-time deploy
+
+```bash
+./deploy.sh
+```
+
+`deploy.sh` builds both containers, starts them, and enables Tailscale Funnel on port 8080.
+
+### Deploying updates
+
+```bash
+./deploy.sh
+```
+
+The SQLite database and uploaded media are mounted as volumes and survive rebuilds.
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `GOOGLE_CLIENT_ID` | OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
+| `FLASK_SECRET_KEY` | Random secret for session signing |
+| `FRONTEND_URL` | Frontend URL (overridden by docker-compose in prod) |
+| `OAUTH_REDIRECT_URI` | OAuth callback URL (overridden in prod) |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key for invite emails |
+
+---
+
+## Repository layout
+
+```
+K2/
+├── README.md
+├── deploy.sh                       Production deploy script
+├── docker-compose.yml              Orchestrates backend + frontend containers
+├── nginx.conf                      nginx config — static files + API proxy
+├── frontend/
+│   ├── Dockerfile                  Multi-stage: builds React, serves via nginx
+│   ├── src/
+│   │   ├── api.js                  Fetch helpers (relative URLs, proxied in dev)
+│   │   ├── theme.js                Light/dark theme management
+│   │   ├── App.jsx                 Router + auth state
+│   │   ├── main.jsx
+│   │   ├── components/             PostCard, ProjectCard, PlanCard, …
+│   │   └── pages/                  Login, Home, Profile, Plans, Admin, Install, …
+│   ├── public/
+│   │   ├── favicon.svg             App icon (mountain peak)
+│   │   ├── icon-192.png            PWA icon
+│   │   ├── icon-512.png            PWA icon
+│   │   └── logo.svg                Horizontal logo lockup
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js              Vite + Tailwind + PWA + dev proxy
+└── backend/
+    ├── Dockerfile                  Python + gunicorn
+    ├── app.py                      Routes + payload helpers
+    ├── models.py                   SQLAlchemy models
+    ├── migrations/                 Alembic migration history
+    ├── requirements.txt
+    └── .env                        Secrets (not committed)
+```
 
 ---
 
@@ -223,26 +250,24 @@ Visit **http://localhost:5173**.
 
 ### Apply schema changes
 
-After editing `backend/models.py`:
-
 ```bash
-cd backend
-flask --app app db migrate -m "describe the change"
-flask --app app db upgrade
+cd backend && source .venv/bin/activate
+flask db migrate -m "describe the change"
+flask db upgrade
 ```
 
 ### Inspect the database
 
 ```bash
 sqlite3 backend/app.db ".tables"
-sqlite3 backend/app.db "SELECT id, username FROM users;"
+sqlite3 backend/app.db "SELECT id, email, is_admin FROM users;"
 ```
 
-### Seed gyms (or do it from the admin page once you're admin)
+### View production logs
 
 ```bash
-sqlite3 backend/app.db \
-  "INSERT INTO gyms (name, created_at) VALUES ('Progression', datetime('now'));"
+docker compose logs backend --tail=50
+docker compose logs frontend --tail=50
 ```
 
 ### Reset everything
@@ -251,5 +276,5 @@ sqlite3 backend/app.db \
 cd backend
 rm app.db
 rm -rf media
-flask --app app db upgrade
+flask db upgrade
 ```

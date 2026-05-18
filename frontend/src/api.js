@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8000'
+const BASE_URL = ''
 
 async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData
