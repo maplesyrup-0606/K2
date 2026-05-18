@@ -18,6 +18,7 @@ export default function PlanCard({
 }) {
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [attendeesOpen, setAttendeesOpen] = useState(false)
 
   const isOrganizer = plan.organizer.id === currentUserId
   const isAttending = plan.attendees.some((a) => a.id === currentUserId)
@@ -137,31 +138,34 @@ export default function PlanCard({
 
           {/* Attendees + action */}
           <div className="mt-3 flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {previewAttendees.map((u) =>
-                u.avatar_url ? (
-                  <img
-                    key={u.id}
-                    src={u.avatar_url}
-                    title={u.display_name}
-                    alt=""
-                    className="w-7 h-7 rounded-full border-2 border-white bg-stone-100 dark:bg-stone-800"
-                  />
-                ) : (
-                  <div
-                    key={u.id}
-                    title={u.display_name}
-                    className="w-7 h-7 rounded-full border-2 border-white bg-stone-300 dark:bg-stone-600 text-[10px] flex items-center justify-center"
-                  >
-                    {u.display_name?.[0] ?? '?'}
-                  </div>
-                )
-              )}
-            </div>
-            <div className="text-xs text-stone-500 dark:text-stone-400 flex-1">
-              {attendeeCount} going
-              {remaining > 0 && ` (+${remaining} more)`}
-            </div>
+            <button
+              type="button"
+              onClick={() => setAttendeesOpen((v) => !v)}
+              className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            >
+              <div className="flex -space-x-2 shrink-0">
+                {previewAttendees.map((u) =>
+                  u.avatar_url ? (
+                    <img
+                      key={u.id}
+                      src={u.avatar_url}
+                      alt=""
+                      className="w-7 h-7 rounded-full border-2 border-white dark:border-stone-900 bg-stone-100 dark:bg-stone-800"
+                    />
+                  ) : (
+                    <div
+                      key={u.id}
+                      className="w-7 h-7 rounded-full border-2 border-white dark:border-stone-900 bg-stone-300 dark:bg-stone-600 text-[10px] flex items-center justify-center"
+                    >
+                      {u.display_name?.[0] ?? '?'}
+                    </div>
+                  )
+                )}
+              </div>
+              <span className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition">
+                {attendeeCount} going
+              </span>
+            </button>
 
             {isOrganizer ? (
               <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
@@ -187,6 +191,26 @@ export default function PlanCard({
               </button>
             )}
           </div>
+          {attendeesOpen && attendeeCount > 0 && (
+            <div className="mt-3 pt-3 border-t border-stone-100 dark:border-stone-800 flex flex-col gap-2">
+              {plan.attendees.map((u) => (
+                <Link
+                  key={u.id}
+                  to={`/u/${u.username}`}
+                  className="flex items-center gap-2 hover:opacity-70 transition"
+                >
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} alt="" className="w-6 h-6 rounded-full" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-stone-300 dark:bg-stone-600 text-[10px] flex items-center justify-center">
+                      {u.display_name?.[0] ?? '?'}
+                    </div>
+                  )}
+                  <span className="text-xs text-stone-700 dark:text-stone-300">{u.display_name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </article>
