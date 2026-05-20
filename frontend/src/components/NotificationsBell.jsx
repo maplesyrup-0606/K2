@@ -129,7 +129,7 @@ export default function NotificationsBell() {
                         type="button"
                         onClick={() => handleNotificationClick(n)}
                         className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition ${
-                          !n.is_read ? 'bg-blue-50 dark:bg-blue-900/30/50' : ''
+                          !n.is_read ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                         }`}
                       >
                         {n.actor.avatar_url ? (

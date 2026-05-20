@@ -598,6 +598,8 @@ def add_reaction(post_id):
                 emoji=emoji,
             ))
         db.session.commit()
+        if post_id != current_user.id:
+            prune_notifications(post.user_id)
     
     return post_payload(post), 200
 
@@ -1008,6 +1010,8 @@ def join_plan(plan_id):
                 plan_id=plan.id
             ))
         db.session.commit()
+        if plan.user_id != current_user.id:
+            prune_notifications(plan.user_id)
     
     return plan_payload(plan), 200
 
@@ -1090,6 +1094,20 @@ def delete_plan(plan_id):
     db.session.commit()
     return '', 204
 
+def prune_notifications(user_id, keep=50):
+    keep_ids = [n.id for n in (
+        Notification.query
+        .filter_by(user_id=user_id)
+        .order_by(Notification.created_at.desc())
+        .limit(keep)
+        .all()
+    )]
+    if len(keep_ids) == keep:
+        Notification.query.filter(
+            Notification.user_id == user_id,
+            ~Notification.id.in_(keep_ids)
+        ).delete(synchronize_session=False)
+
 def notification_payload(n):
     return {
         'id': n.id,
@@ -1114,7 +1132,7 @@ def list_notifications():
         Notification.query
         .filter_by(user_id=current_user.id)
         .order_by(Notification.created_at.desc())
-        .limit(50)
+        .limit(20)
         .all()
     )
     
