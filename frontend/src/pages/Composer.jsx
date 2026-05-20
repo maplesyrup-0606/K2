@@ -58,6 +58,11 @@ export default function Composer({ user, onClose, onPosted }) {
   function handlePhotoChange(e) {
     const f = e.target.files[0]
     if (!f) return
+    if (f.size > 20 * 1024 * 1024) {
+      setError('Photo must be under 20 MB')
+      return
+    }
+    setError(null)
     setPhoto(f)
     setPhotoPreview(URL.createObjectURL(f))
   }
@@ -174,7 +179,7 @@ export default function Composer({ user, onClose, onPosted }) {
           <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
             Grade
           </label>
-          <div className="mt-1 flex gap-2 items-center">
+          <div className="mt-2 flex gap-2">
             {[
               ['v', 'V'],
               ['comp', 'Comp'],
@@ -186,27 +191,28 @@ export default function Composer({ user, onClose, onPosted }) {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                   gradeScale === s
                     ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
                 }`}
               >
                 {label}
               </button>
             ))}
-            <input
-              type="number"
-              min={gradeMin}
-              max={gradeMax}
-              value={gradeValue}
-              onChange={(e) => {
-                const n = parseInt(e.target.value)
-                setGradeValue(Number.isNaN(n) ? gradeMin : n)
-                setProjectSelection(null)
-              }}
-              className="w-16 ml-2 px-2 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
-            />
-            <span className="text-sm text-stone-500 dark:text-stone-400">
-              ({gradeMin}–{gradeMax})
-            </span>
+          </div>
+          <div className={`mt-2 grid gap-2 ${gradeScale === 'v' ? 'grid-cols-5' : 'grid-cols-4'}`}>
+            {Array.from({ length: gradeMax - gradeMin + 1 }, (_, i) => gradeMin + i).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { setGradeValue(n); setProjectSelection(null) }}
+                className={`py-1.5 rounded-lg text-sm font-medium transition ${
+                  gradeValue === n
+                    ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                }`}
+              >
+                {gradeScale === 'v' ? `V${n}` : `C${n}`}
+              </button>
+            ))}
           </div>
         </div>
 
