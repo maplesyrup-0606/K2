@@ -198,18 +198,27 @@ def user_payload(user):
     }
 
 def post_payload(post):
-    rows = (
-        db.session.query(Reaction.emoji, func.count())
+    reaction_rows = (
+        db.session.query(Reaction, User)
+        .join(User, User.id == Reaction.user_id)
         .filter(Reaction.post_id == post.id)
-        .group_by(Reaction.emoji)
+        .order_by(Reaction.created_at.asc())
         .all()
     )
-    
-    reaction_counts = {emoji: count for emoji, count in rows}
-    my_reactions = [
-        r.emoji for r in
-        Reaction.query.filter_by(post_id=post.id, user_id=current_user.id).all()
-    ]
+
+    reactors = {}
+    reaction_counts = {}
+    my_reactions = []
+    for reaction, user in reaction_rows:
+        reactors.setdefault(reaction.emoji, []).append({
+            'id': user.id,
+            'username': user.username,
+            'display_name': user.display_name,
+            'avatar_url': user.avatar_url,
+        })
+        reaction_counts[reaction.emoji] = reaction_counts.get(reaction.emoji, 0) + 1
+        if reaction.user_id == current_user.id:
+            my_reactions.append(reaction.emoji)
     return {
         'id': post.id,
         'user_id': post.user_id,
@@ -231,6 +240,7 @@ def post_payload(post):
         },
         'reaction_counts': reaction_counts,
         'my_reactions': my_reactions,
+        'reactors': reactors,
     }
 
 ATTEMPTS_LOWER = {'1': 1, '2': 2, '3-4': 3, '5-9': 5, '10+': 10}

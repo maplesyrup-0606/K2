@@ -40,6 +40,8 @@ export default function PostCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reactingEmoji, setReactingEmoji] = useState(null)
+  const [reactorsOpen, setReactorsOpen] = useState(false)
+  const [pickedReactorEmoji, setPickedReactorEmoji] = useState(null)
   const isMine = currentUserId === post.user.id
 
   const badge = outcomeBadge(post)
@@ -48,10 +50,23 @@ export default function PostCard({
 
   const reactionCounts = post.reaction_counts || {}
   const myReactions = post.my_reactions || []
+  const reactors = post.reactors || {}
+  const reactedEmojis = Object.keys(reactors)
+  const totalReactions = reactedEmojis.reduce(
+    (n, e) => n + (reactors[e]?.length || 0),
+    0,
+  )
   // Always show defaults + any custom emoji that's been used on this post
   const emojiList = Array.from(
     new Set([...DEFAULT_EMOJIS, ...Object.keys(reactionCounts)])
   )
+
+  // The picked tab may no longer have any reactors (someone removed theirs).
+  // Fall back to the first available emoji so the panel always shows a list.
+  const activeReactorEmoji =
+    pickedReactorEmoji && reactedEmojis.includes(pickedReactorEmoji)
+      ? pickedReactorEmoji
+      : reactedEmojis[0] ?? null
 
   async function handleDelete() {
     setMenuOpen(false)
@@ -197,6 +212,65 @@ export default function PostCard({
             )
           })}
         </div>
+
+        {totalReactions > 0 && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => setReactorsOpen((v) => !v)}
+              className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition"
+              aria-expanded={reactorsOpen}
+            >
+              {totalReactions === 1 ? '1 reaction' : `${totalReactions} reactions`}
+            </button>
+
+            {reactorsOpen && (
+              <div className="mt-2 pt-3 border-t border-stone-100 dark:border-stone-800">
+                <div className="flex flex-wrap gap-1.5">
+                  {reactedEmojis.map((emoji) => {
+                    const active = emoji === activeReactorEmoji
+                    return (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setPickedReactorEmoji(emoji)}
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
+                          active
+                            ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                            : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        <span>{emoji}</span>
+                        <span>{reactors[emoji]?.length || 0}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2">
+                  {(reactors[activeReactorEmoji] || []).map((u) => (
+                    <Link
+                      key={u.id}
+                      to={`/u/${u.username}`}
+                      className="flex items-center gap-2 hover:opacity-70 transition"
+                    >
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="" className="w-6 h-6 rounded-full" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-stone-300 dark:bg-stone-600 text-[10px] flex items-center justify-center">
+                          {u.display_name?.[0] ?? '?'}
+                        </div>
+                      )}
+                      <span className="text-xs text-stone-700 dark:text-stone-300">
+                        {u.display_name}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </article>
   )
