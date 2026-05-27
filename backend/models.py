@@ -48,11 +48,17 @@ class User(db.Model, UserMixin):
     )
     
     is_onboarded = db.Column(
-        db.Boolean, 
-        nullable=False, 
+        db.Boolean,
+        nullable=False,
         default=False
     )
-    
+
+    email_notifications_enabled = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True,
+    )
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -187,6 +193,7 @@ class Plan(db.Model):
         index=True,
     )
     note = db.Column(db.Text)
+    email_sent_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,

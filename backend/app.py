@@ -5,9 +5,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 from flask_cors import CORS
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, update as sql_update
 from authlib.integrations.flask_client import OAuth
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from PIL import Image, UnidentifiedImageError
 from functools import wraps
 import os, re, secrets, uuid, smtplib
@@ -114,6 +114,35 @@ def send_invite_email(to_email):
 
 
 
+def send_plan_notification_email(to_email, going_phrase, gym_name, time_str, plans_url, settings_url):
+    password = os.getenv('GMAIL_APP_PASSWORD')
+    if not password:
+        print('[email] skipped — GMAIL_APP_PASSWORD not set')
+        return
+    html = f"""
+    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0c0a09;color:#f5f5f4;border-radius:12px;">
+      <h1 style="font-size:48px;font-weight:800;color:#863bff;margin:0 0 8px;">K2</h1>
+      <p style="color:#a8a29e;margin:0 0 24px;">Climbing log for friends</p>
+      <p style="margin:0 0 32px;">{going_phrase} <strong>{gym_name}</strong> at {time_str} today.</p>
+      <a href="{plans_url}" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Join them →</a>
+      <p style="margin:32px 0 0;font-size:12px;color:#78716c;">You're getting this because you're on K2. <a href="{settings_url}" style="color:#a78bfa;text-decoration:none;">Manage notification settings</a></p>
+    </div>
+    """
+    msg = MIMEText(html, 'html')
+    msg['Subject'] = f"Climbing at {gym_name} today — want in?"
+    msg['From'] = 'K2 <mercurymcindoe@gmail.com>'
+    msg['To'] = to_email
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login('mercurymcindoe@gmail.com', password)
+            smtp.sendmail('mercurymcindoe@gmail.com', to_email, msg.as_string())
+        print(f'[email] plan notification sent to {to_email}')
+    except Exception as e:
+        print(f'[email] failed to send plan notification to {to_email}: {e}')
+
+
 @app.route('/api/admin/invites', methods=['POST'])
 @admin_required
 def add_invite():
@@ -195,6 +224,7 @@ def user_payload(user):
         'avatar_url': user.avatar_url,
         'is_onboarded': user.is_onboarded,
         'is_admin': user.is_admin,
+        'email_notifications_enabled': user.email_notifications_enabled,
     }
 
 def post_payload(post):
@@ -299,10 +329,15 @@ def update_me():
         display_name = (data['display_name'] or '').strip()
         if not (1 <= len(display_name) <= 120):
             return {'error': 'display_name must be 1-120 characters'}, 400
-        
         current_user.display_name = display_name
         if not current_user.is_onboarded:
             current_user.is_onboarded = True
+
+    if 'email_notifications_enabled' in data:
+        val = data['email_notifications_enabled']
+        if not isinstance(val, bool):
+            return {'error': 'email_notifications_enabled must be a boolean'}, 400
+        current_user.email_notifications_enabled = val
 
     db.session.commit()
     return user_payload(current_user)
@@ -1182,6 +1217,76 @@ def mark_notifications_read():
 @app.route("/media/<path:filepath>")    
 def serve_media(filepath):
     return send_from_directory(MEDIA_DIR, filepath)
+
+def send_plan_day_emails():
+    with app.app_context():
+        try:
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            today_start = now_naive.replace(hour=0, minute=0, second=0, microsecond=0)
+            tomorrow_start = today_start + timedelta(days=1)
+            today_date = now_naive.date()
+
+            plans = (
+                Plan.query
+                .filter(
+                    Plan.planned_at >= now_naive,
+                    Plan.planned_at < tomorrow_start,
+                    or_(Plan.email_sent_date == None, Plan.email_sent_date != today_date),
+                )
+                .all()
+            )
+
+            for plan in plans:
+                result = db.session.execute(
+                    sql_update(Plan)
+                    .where(Plan.id == plan.id)
+                    .where(or_(Plan.email_sent_date == None, Plan.email_sent_date != today_date))
+                    .values(email_sent_date=today_date)
+                )
+                db.session.commit()
+                if result.rowcount == 0:
+                    continue
+
+                attendee_ids = {a.user_id for a in plan.attendees}
+                recipients = User.query.filter(
+                    User.id.notin_(attendee_ids),
+                    User.email_notifications_enabled == True,
+                ).all()
+
+                if not recipients:
+                    continue
+
+                organizer = plan.user
+                gym_name = plan.gym.name
+                count = len(attendee_ids)
+                if count == 1:
+                    going_phrase = f"{organizer.display_name} is heading to"
+                elif count == 2:
+                    going_phrase = f"{organizer.display_name} and 1 other are heading to"
+                else:
+                    going_phrase = f"{organizer.display_name} and {count - 1} others are heading to"
+
+                dt = plan.planned_at
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                hour = dt.strftime('%I').lstrip('0') or '12'
+                time_str = hour + dt.strftime(':%M %p UTC')
+
+                plans_url = f"{FRONTEND_URL}/plans"
+                for user in recipients:
+                    settings_url = f"{FRONTEND_URL}/u/{user.username}?settings=notifications"
+                    send_plan_notification_email(
+                        user.email, going_phrase, gym_name, time_str, plans_url, settings_url
+                    )
+        except Exception as e:
+            print(f'[scheduler] plan email job failed: {e}')
+
+
+from apscheduler.schedulers.background import BackgroundScheduler
+_scheduler = BackgroundScheduler(daemon=True)
+_scheduler.add_job(send_plan_day_emails, 'cron', hour=8, minute=0, id='plan_day_emails', replace_existing=True)
+_scheduler.start()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

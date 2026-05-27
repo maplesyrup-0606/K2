@@ -11,4 +11,4 @@ ENV FLASK_APP=app.py
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "flask db upgrade && gunicorn -w 4 -b 0.0.0.0:5000 app:app"]
+CMD ["sh", "-c", "flask db upgrade && gunicorn -w 1 -b 0.0.0.0:5000 app:app"]
