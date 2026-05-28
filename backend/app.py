@@ -11,6 +11,9 @@ from datetime import datetime, timezone, timedelta, date
 from PIL import Image, UnidentifiedImageError
 from functools import wraps
 import os, re, secrets, uuid, smtplib
+from zoneinfo import ZoneInfo
+
+VANCOUVER_TZ = ZoneInfo('America/Vancouver')
 from email.mime.text import MIMEText
 
 
@@ -1221,15 +1224,17 @@ def serve_media(filepath):
 def send_plan_day_emails():
     with app.app_context():
         try:
-            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-            today_start = now_naive.replace(hour=0, minute=0, second=0, microsecond=0)
-            tomorrow_start = today_start + timedelta(days=1)
-            today_date = now_naive.date()
+            now_van = datetime.now(VANCOUVER_TZ)
+            today_date = now_van.date()
+            today_start_van = now_van.replace(hour=0, minute=0, second=0, microsecond=0)
+            tomorrow_start_van = today_start_van + timedelta(days=1)
+            today_start = today_start_van.astimezone(timezone.utc).replace(tzinfo=None)
+            tomorrow_start = tomorrow_start_van.astimezone(timezone.utc).replace(tzinfo=None)
 
             plans = (
                 Plan.query
                 .filter(
-                    Plan.planned_at >= now_naive,
+                    Plan.planned_at >= today_start,
                     Plan.planned_at < tomorrow_start,
                     or_(Plan.email_sent_date == None, Plan.email_sent_date != today_date),
                 )
@@ -1283,7 +1288,7 @@ def send_plan_day_emails():
 
 
 from apscheduler.schedulers.background import BackgroundScheduler
-_scheduler = BackgroundScheduler(daemon=True)
+_scheduler = BackgroundScheduler(daemon=True, timezone=VANCOUVER_TZ)
 _scheduler.add_job(send_plan_day_emails, 'cron', hour=8, minute=0, id='plan_day_emails', replace_existing=True)
 _scheduler.start()
 
