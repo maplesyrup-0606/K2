@@ -38,6 +38,7 @@ export default function ProjectCard({ project }) {
         <img
           src={`${api.baseUrl}/media/${project.photo_path}`}
           alt=""
+          loading="lazy"
           className="w-full h-full object-cover"
         />
       </div>

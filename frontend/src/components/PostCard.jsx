@@ -165,6 +165,7 @@ export default function PostCard({
       <img
         src={`${api.baseUrl}/media/${post.photo_path}`}
         alt=""
+        loading="lazy"
         className="w-full mt-3 aspect-square object-cover bg-stone-100 dark:bg-stone-800"
       />
 

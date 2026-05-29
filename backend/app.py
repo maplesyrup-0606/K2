@@ -428,18 +428,18 @@ def create_post():
         return {'error': 'photo is not a valid image'}, 400
     
     photo.stream.seek(0)
-    
-    ext = ALLOWED_MIMES[photo.mimetype]
-    filename = f"{uuid.uuid4().hex}{ext}"
-    
+
+    filename = f"{uuid.uuid4().hex}.jpg"
     user_dir = os.path.join(MEDIA_DIR, str(current_user.id))
     os.makedirs(user_dir, exist_ok=True)
-    
     photo_path_disk = os.path.join(user_dir, filename)
     photo_path_rel = f"{current_user.id}/{filename}"
-    
-    photo.save(photo_path_disk)
-    
+
+    with Image.open(photo.stream) as img:
+        img = img.convert('RGB')
+        img.thumbnail((1200, 1200), Image.LANCZOS)
+        img.save(photo_path_disk, format='JPEG', quality=85, optimize=True)
+
     post = Post(
         user_id=current_user.id,
         climbed_at=climbed_at,
@@ -790,11 +790,15 @@ def create_project():
         return {'error': 'photo is not a valid image'}, 400
     photo.stream.seek(0)
 
-    ext = ALLOWED_MIMES[photo.mimetype]
-    filename = f"{uuid.uuid4().hex}{ext}"
+    filename = f"{uuid.uuid4().hex}.jpg"
     user_dir = os.path.join(MEDIA_DIR, str(current_user.id))
     os.makedirs(user_dir, exist_ok=True)
-    photo.save(os.path.join(user_dir, filename))
+
+    with Image.open(photo.stream) as img:
+        img = img.convert('RGB')
+        img.thumbnail((1200, 1200), Image.LANCZOS)
+        img.save(os.path.join(user_dir, filename), format='JPEG', quality=85, optimize=True)
+
     photo_path_rel = f"{current_user.id}/{filename}"
 
     project = Project(
