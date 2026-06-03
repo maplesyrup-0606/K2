@@ -19,7 +19,52 @@ function Stat({ label, value }) {
   )
 }
 
-function GradePyramid({ pyramid, prefix, title }) {
+// Each entry: [hue, sat-light, light-light, sat-dark, light-dark]
+// Light mode: medium-dark so bars pop against the pale stone-100 track.
+// Dark mode: brighter so bars pop against the deep stone-950 track.
+const V_PALETTE = [
+  [215, 34, 48, 40, 64], // V0 — steel blue
+  [200, 30, 46, 36, 62], // V1
+  [183, 28, 45, 34, 61], // V2 — teal
+  [165, 26, 43, 32, 59], // V3
+  [148, 24, 42, 30, 58], // V4 — muted green
+  [38,  36, 47, 42, 63], // V5 — amber
+  [26,  36, 46, 42, 62], // V6 — orange
+  [14,  38, 45, 44, 61], // V7
+  [4,   38, 45, 44, 61], // V8 — red
+  [350, 36, 45, 42, 61], // V9 — rose
+]
+const COMP_PALETTE = [
+  [215, 34, 48, 40, 64], // C1 — blue
+  [165, 26, 43, 32, 59], // C2 — teal-green
+  [38,  36, 47, 42, 63], // C3 — amber
+  [350, 36, 45, 42, 61], // C4 — rose
+]
+
+function gradeColor(grade, scale, isDark) {
+  const palette = scale === 'v' ? V_PALETTE : COMP_PALETTE
+  const idx = scale === 'v'
+    ? Math.min(grade, palette.length - 1)
+    : Math.min(grade - 1, palette.length - 1)
+  const [h, sl, ll, sd, ld] = palette[idx]
+  return isDark ? `hsl(${h},${sd}%,${ld}%)` : `hsl(${h},${sl}%,${ll}%)`
+}
+
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
+
+function GradePyramid({ pyramid, prefix, title, scale, isDark }) {
   const grades = Object.keys(pyramid)
     .map(Number)
     .sort((a, b) => b - a)
@@ -37,16 +82,16 @@ function GradePyramid({ pyramid, prefix, title }) {
         {grades.map((g) => {
           const count = pyramid[g]
           const width = (count / max) * 100
+          const color = gradeColor(g, scale, isDark)
           return (
             <div key={g} className="flex items-center gap-3">
               <div className="w-10 text-xs text-stone-700 dark:text-stone-300 font-medium">
-                {prefix}
-                {g}
+                {prefix}{g}
               </div>
-              <div className="flex-1 bg-stone-100 dark:bg-stone-800 rounded h-5 overflow-hidden">
+              <div className="flex-1 bg-stone-100 dark:bg-stone-950 rounded h-5 overflow-hidden">
                 <div
-                  className="bg-stone-800 h-full"
-                  style={{ width: `${width}%` }}
+                  className="h-full rounded"
+                  style={{ width: `${width}%`, backgroundColor: color }}
                 />
               </div>
               <div className="w-6 text-xs text-stone-700 dark:text-stone-300 text-right">
@@ -61,6 +106,7 @@ function GradePyramid({ pyramid, prefix, title }) {
 }
 
 export default function StatsPanel({ username }) {
+  const isDark = useDarkMode()
   const [stats, setStats] = useState(null)
   const [window, setWindow] = useState('30d')
   const [loading, setLoading] = useState(true)
@@ -139,11 +185,15 @@ export default function StatsPanel({ username }) {
             pyramid={stats.v_pyramid}
             prefix="V"
             title="V scale (sends)"
+            scale="v"
+            isDark={isDark}
           />
           <GradePyramid
             pyramid={stats.comp_pyramid}
             prefix="Comp "
             title="Comp scale (sends)"
+            scale="comp"
+            isDark={isDark}
           />
         </>
       )}
