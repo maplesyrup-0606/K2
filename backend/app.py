@@ -8,7 +8,7 @@ from flask_cors import CORS
 from sqlalchemy import func, or_, update as sql_update
 from authlib.integrations.flask_client import OAuth
 from datetime import datetime, timezone, timedelta, date
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from functools import wraps
 import os, re, secrets, uuid, smtplib
 from zoneinfo import ZoneInfo
@@ -436,6 +436,7 @@ def create_post():
     photo_path_rel = f"{current_user.id}/{filename}"
 
     with Image.open(photo.stream) as img:
+        img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
         img.thumbnail((1200, 1200), Image.LANCZOS)
         img.save(photo_path_disk, format='JPEG', quality=85, optimize=True)
@@ -795,6 +796,7 @@ def create_project():
     os.makedirs(user_dir, exist_ok=True)
 
     with Image.open(photo.stream) as img:
+        img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
         img.thumbnail((1200, 1200), Image.LANCZOS)
         img.save(os.path.join(user_dir, filename), format='JPEG', quality=85, optimize=True)
