@@ -87,11 +87,29 @@ def list_invites():
         ]
     }
 
-def send_invite_email(to_email):
+GMAIL_FROM = os.getenv('GMAIL_FROM', 'mercurymcindoe@gmail.com')
+
+def _send_email(to_email, subject, html):
     password = os.getenv('GMAIL_APP_PASSWORD')
     if not password:
         print('[email] skipped — GMAIL_APP_PASSWORD not set')
         return
+    msg = MIMEText(html, 'html')
+    msg['Subject'] = subject
+    msg['From'] = f'K2 <{GMAIL_FROM}>'
+    msg['To'] = to_email
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(GMAIL_FROM, password)
+            smtp.sendmail(GMAIL_FROM, to_email, msg.as_string())
+        print(f'[email] "{subject}" sent to {to_email}')
+    except Exception as e:
+        print(f'[email] failed to send to {to_email}: {e}')
+
+
+def send_invite_email(to_email):
     app_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
     html = f"""
     <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0c0a09;color:#f5f5f4;border-radius:12px;">
@@ -101,27 +119,10 @@ def send_invite_email(to_email):
       <a href="{app_url}/install" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Get started →</a>
     </div>
     """
-    msg = MIMEText(html, 'html')
-    msg['Subject'] = "You've been invited to K2"
-    msg['From'] = 'K2 <mercurymcindoe@gmail.com>'
-    msg['To'] = to_email
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.login('mercurymcindoe@gmail.com', password)
-            smtp.sendmail('mercurymcindoe@gmail.com', to_email, msg.as_string())
-        print(f'[email] sent to {to_email}')
-    except Exception as e:
-        print(f'[email] failed to send to {to_email}: {e}')
-
+    _send_email(to_email, "You've been invited to K2", html)
 
 
 def send_plan_notification_email(to_email, going_phrase, gym_name, time_str, plans_url, settings_url):
-    password = os.getenv('GMAIL_APP_PASSWORD')
-    if not password:
-        print('[email] skipped — GMAIL_APP_PASSWORD not set')
-        return
     html = f"""
     <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0c0a09;color:#f5f5f4;border-radius:12px;">
       <h1 style="font-size:48px;font-weight:800;color:#863bff;margin:0 0 8px;">K2</h1>
@@ -131,19 +132,7 @@ def send_plan_notification_email(to_email, going_phrase, gym_name, time_str, pla
       <p style="margin:32px 0 0;font-size:12px;color:#78716c;">You're getting this because you're on K2. <a href="{settings_url}" style="color:#a78bfa;text-decoration:none;">Manage notification settings</a></p>
     </div>
     """
-    msg = MIMEText(html, 'html')
-    msg['Subject'] = f"Climbing at {gym_name} today — want in?"
-    msg['From'] = 'K2 <mercurymcindoe@gmail.com>'
-    msg['To'] = to_email
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.login('mercurymcindoe@gmail.com', password)
-            smtp.sendmail('mercurymcindoe@gmail.com', to_email, msg.as_string())
-        print(f'[email] plan notification sent to {to_email}')
-    except Exception as e:
-        print(f'[email] failed to send plan notification to {to_email}: {e}')
+    _send_email(to_email, f"Climbing at {gym_name} today — want in?", html)
 
 
 @app.route('/api/admin/invites', methods=['POST'])
@@ -155,17 +144,21 @@ def add_invite():
         return {'error': 'valid email required'}, 400
 
     existing = db.session.get(InviteAllowList, email)
-    if existing is None:
-        db.session.add(InviteAllowList(
-            email=email,
-            invited_by=current_user.id,
-        ))
-        db.session.commit()
-        send_invite_email(email)
+    if existing is not None:
+        return {
+            'email': existing.email,
+            'invited_by': existing.invited_by,
+            'created_at': existing.created_at.isoformat(),
+        }, 200
+
+    invite = InviteAllowList(email=email, invited_by=current_user.id)
+    db.session.add(invite)
+    db.session.commit()
+    send_invite_email(email)
     return {
-        'email': email,
-        'invited_by': current_user.id,
-        'created_at': (existing.created_at if existing else InviteAllowList.query.get(email).created_at).isoformat()
+        'email': invite.email,
+        'invited_by': invite.invited_by,
+        'created_at': invite.created_at.isoformat(),
     }, 201
     
 @app.route('/api/admin/invites/<email>', methods=['DELETE'])
@@ -638,7 +631,7 @@ def add_reaction(post_id):
             emoji=emoji,
         ))
         
-        if post_id != current_user.id:
+        if post.user_id != current_user.id:
             db.session.add(Notification(
                 user_id=post.user_id,
                 actor_id=current_user.id,
@@ -647,7 +640,7 @@ def add_reaction(post_id):
                 emoji=emoji,
             ))
         db.session.commit()
-        if post_id != current_user.id:
+        if post.user_id != current_user.id:
             prune_notifications(post.user_id)
     
     return post_payload(post), 200
@@ -1223,9 +1216,12 @@ def mark_notifications_read():
     
 
 
-@app.route("/media/<path:filepath>")    
+@app.route("/media/<path:filepath>")
+@login_required
 def serve_media(filepath):
-    return send_from_directory(MEDIA_DIR, filepath)
+    response = send_from_directory(MEDIA_DIR, filepath)
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
 
 def send_plan_day_emails():
     with app.app_context():
@@ -1280,8 +1276,9 @@ def send_plan_day_emails():
                 dt = plan.planned_at
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.astimezone(VANCOUVER_TZ)
                 hour = dt.strftime('%I').lstrip('0') or '12'
-                time_str = hour + dt.strftime(':%M %p UTC')
+                time_str = hour + dt.strftime(':%M %p PT')
 
                 plans_url = f"{FRONTEND_URL}/plans"
                 for user in recipients:
