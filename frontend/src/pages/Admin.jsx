@@ -51,10 +51,14 @@ export default function Admin({ currentUser }) {
   const [gyms, setGyms] = useState([])
   const [loadingGyms, setLoadingGyms] = useState(true)
   const [newGymName, setNewGymName] = useState('')
+  const [newGymCity, setNewGymCity] = useState('')
+  const [newGymCountry, setNewGymCountry] = useState('')
   const [submittingGym, setSubmittingGym] = useState(false)
   const [gymError, setGymError] = useState(null)
   const [editingGymId, setEditingGymId] = useState(null)
   const [editGymName, setEditGymName] = useState('')
+  const [editGymCity, setEditGymCity] = useState('')
+  const [editGymCountry, setEditGymCountry] = useState('')
 
   const loadGyms = useCallback(async () => {
     setLoadingGyms(true)
@@ -73,32 +77,46 @@ export default function Admin({ currentUser }) {
     if (!name) return
     setGymError(null)
     setSubmittingGym(true)
-    const { ok, data } = await api.addGym(name)
+    const { ok, data } = await api.addGym({
+      name,
+      city: newGymCity.trim() || undefined,
+      country: newGymCountry.trim() || undefined,
+    })
     setSubmittingGym(false)
     if (!ok) {
       setGymError(data?.error || 'Failed to add gym')
       return
     }
     setNewGymName('')
+    setNewGymCity('')
+    setNewGymCountry('')
     loadGyms()
   }
 
   function startEditGym(gym) {
     setEditingGymId(gym.id)
     setEditGymName(gym.name)
+    setEditGymCity(gym.city || '')
+    setEditGymCountry(gym.country || '')
   }
 
   async function saveEditGym(id) {
     const name = editGymName.trim()
     if (!name) return
-    const { ok, data } = await api.updateGym(id, name)
+    const { ok, data } = await api.updateGym(id, {
+      name,
+      city: editGymCity.trim() || null,
+      country: editGymCountry.trim() || null,
+    })
     if (!ok) {
-      window.alert(data?.error || 'Failed to rename')
+      window.alert(data?.error || 'Failed to save')
       return
     }
     setGyms((prev) => prev.map((g) => (g.id === id ? data : g)))
     setEditingGymId(null)
     setEditGymName('')
+    setEditGymCity('')
+    setEditGymCountry('')
   }
 
   async function handleRemoveGym(gym) {
@@ -213,7 +231,7 @@ export default function Admin({ currentUser }) {
 
           <form
             onSubmit={handleAddGym}
-            className="mt-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 flex gap-2"
+            className="mt-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 flex flex-col gap-2"
           >
             <input
               type="text"
@@ -221,16 +239,34 @@ export default function Admin({ currentUser }) {
               onChange={(e) => setNewGymName(e.target.value)}
               placeholder="Gym name"
               maxLength={120}
-              className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
               required
             />
-            <button
-              type="submit"
-              disabled={submittingGym || !newGymName.trim()}
-              className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 text-sm font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
-            >
-              {submittingGym ? 'Adding…' : 'Add'}
-            </button>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newGymCity}
+                onChange={(e) => setNewGymCity(e.target.value)}
+                placeholder="City"
+                maxLength={120}
+                className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              />
+              <input
+                type="text"
+                value={newGymCountry}
+                onChange={(e) => setNewGymCountry(e.target.value)}
+                placeholder="Country"
+                maxLength={120}
+                className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+              />
+              <button
+                type="submit"
+                disabled={submittingGym || !newGymName.trim()}
+                className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 text-sm font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50"
+              >
+                {submittingGym ? 'Adding…' : 'Add'}
+              </button>
+            </div>
           </form>
           {gymError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{gymError}</p>}
 
@@ -251,33 +287,53 @@ export default function Admin({ currentUser }) {
                     className="flex items-center justify-between px-4 py-3"
                   >
                     {editingGymId === g.id ? (
-                      <>
+                      <div className="flex-1 flex flex-col gap-2">
                         <input
                           type="text"
                           value={editGymName}
                           onChange={(e) => setEditGymName(e.target.value)}
                           maxLength={120}
-                          className="flex-1 mr-3 px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                          className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
                           autoFocus
                         />
-                        <button
-                          type="button"
-                          onClick={() => saveEditGym(g.id)}
-                          className="text-xs px-3 py-1 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-300"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingGymId(null)
-                            setEditGymName('')
-                          }}
-                          className="ml-2 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-                        >
-                          Cancel
-                        </button>
-                      </>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editGymCity}
+                            onChange={(e) => setEditGymCity(e.target.value)}
+                            placeholder="City"
+                            maxLength={120}
+                            className="flex-1 px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                          />
+                          <input
+                            type="text"
+                            value={editGymCountry}
+                            onChange={(e) => setEditGymCountry(e.target.value)}
+                            placeholder="Country"
+                            maxLength={120}
+                            className="flex-1 px-3 py-1.5 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveEditGym(g.id)}
+                            className="text-xs px-3 py-1 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-300"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingGymId(null)
+                              setEditGymName('')
+                              setEditGymCity('')
+                              setEditGymCountry('')
+                            }}
+                            className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <>
                         <div>
@@ -285,6 +341,7 @@ export default function Admin({ currentUser }) {
                             {g.name}
                           </div>
                           <div className="text-xs text-stone-400 dark:text-stone-500">
+                            {g.city && <span>{g.city}{g.country ? `, ${g.country}` : ''} · </span>}
                             Added {new Date(g.created_at).toLocaleDateString()}
                           </div>
                         </div>

@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 
+const HOLD_COLORS = [
+  { hex: '#EF4444', name: 'Red' },
+  { hex: '#F97316', name: 'Orange' },
+  { hex: '#EAB308', name: 'Yellow' },
+  { hex: '#22C55E', name: 'Green' },
+  { hex: '#3B82F6', name: 'Blue' },
+  { hex: '#A855F7', name: 'Purple' },
+  { hex: '#EC4899', name: 'Pink' },
+  { hex: '#1C1917', name: 'Black' },
+  { hex: '#F5F5F4', name: 'White' },
+  { hex: '#6B7280', name: 'Gray' },
+]
+
 const OUTCOMES = [
   ['sent', 'Sent'],
   ['projecting', 'Project-ing'],
@@ -92,13 +105,29 @@ export default function Composer({ user, onClose, onPosted }) {
   const [outcome, setOutcome] = useState('sent')
   const [attempts, setAttempts] = useState('1')
   const [notes, setNotes] = useState('')
+  const [holdColor, setHoldColor] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  const [gyms, setGyms] = useState([])
+  const [gymId, setGymId] = useState('')
+  const [gymOpen, setGymOpen] = useState(false)
 
   const [projectSelection, setProjectSelection] = useState(null)
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [activeProjects, setActiveProjects] = useState([])
   const [loadingProjects, setLoadingProjects] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api.listGyms().then(({ ok, data }) => {
+      if (cancelled) return
+      const list = ok ? data.gyms : []
+      setGyms(list)
+      if (list.length > 0) setGymId(String(list[0].id))
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Lock body scroll for the duration the modal is mounted
   useEffect(() => {
@@ -273,6 +302,14 @@ export default function Composer({ user, onClose, onPosted }) {
       setError('Photo is required')
       return
     }
+    if (!holdColor) {
+      setError('Pick a hold color')
+      return
+    }
+    if (!gymId) {
+      setError('Pick a gym')
+      return
+    }
     if (projectSelection === 'new' && !newProjectTitle.trim()) {
       setError('Project title required')
       return
@@ -308,7 +345,9 @@ export default function Composer({ user, onClose, onPosted }) {
     fd.append('outcome', outcome)
     fd.append('attempts_bucket', attempts)
     if (notes.trim()) fd.append('notes', notes.trim())
+    fd.append('hold_color', holdColor)
     if (projectId != null) fd.append('project_id', String(projectId))
+    fd.append('gym_id', gymId)
 
     const { ok, data } = await api.createPost(fd)
     setSubmitting(false)
@@ -477,6 +516,28 @@ export default function Composer({ user, onClose, onPosted }) {
           </div>
         </div>
 
+        {/* Hold color */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Hold color
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2.5">
+            {HOLD_COLORS.map(({ hex, name }) => (
+              <button
+                key={hex}
+                type="button"
+                onClick={() => setHoldColor(holdColor === hex ? null : hex)}
+                aria-label={name}
+                className={`w-8 h-8 rounded-full transition ${holdColor === hex ? 'ring-2 ring-offset-2 ring-stone-900 dark:ring-stone-100' : 'hover:scale-110'}`}
+                style={{
+                  backgroundColor: hex,
+                  border: hex === '#F5F5F4' ? '1px solid #d6d3d1' : 'none',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
         {/* Outcome */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
@@ -603,6 +664,62 @@ export default function Composer({ user, onClose, onPosted }) {
             placeholder="Beta, thoughts, etc."
             className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
+        </div>
+
+        {/* Gym */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Gym
+          </label>
+          {gyms.length === 0 ? (
+            <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading gyms…</div>
+          ) : (
+            <div className="mt-1 relative">
+              <button
+                type="button"
+                onClick={() => setGymOpen((v) => !v)}
+                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900"
+              >
+                {(() => {
+                  const sel = gyms.find((g) => String(g.id) === gymId)
+                  return sel ? (
+                    <>
+                      <div className="text-sm text-stone-900 dark:text-stone-100">{sel.name}</div>
+                      {sel.city && (
+                        <div className="text-xs text-stone-400 dark:text-stone-500">
+                          {sel.city}{sel.country ? `, ${sel.country}` : ''}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-sm text-stone-400 dark:text-stone-500">Select a gym</div>
+                  )
+                })()}
+              </button>
+              {gymOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setGymOpen(false)} />
+                  <div className="absolute z-20 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {gyms.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => { setGymId(String(g.id)); setGymOpen(false) }}
+                        className={`w-full px-3 py-2 text-left hover:bg-stone-50 dark:hover:bg-stone-800 ${String(g.id) === gymId ? 'bg-stone-50 dark:bg-stone-800' : ''}`}
+                      >
+                        <div className="text-sm text-stone-900 dark:text-stone-100">{g.name}</div>
+                        {g.city && (
+                          <div className="text-xs text-stone-400 dark:text-stone-500">
+                            {g.city}{g.country ? `, ${g.country}` : ''}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}

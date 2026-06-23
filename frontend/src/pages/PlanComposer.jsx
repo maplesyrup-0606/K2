@@ -12,6 +12,7 @@ export default function PlanComposer({ onClose, onCreated }) {
   const [gyms, setGyms] = useState([])
   const [loadingGyms, setLoadingGyms] = useState(true)
   const [gymId, setGymId] = useState('')
+  const [gymOpen, setGymOpen] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('18:00')
   const [note, setNote] = useState('')
@@ -100,18 +101,51 @@ export default function PlanComposer({ onClose, onCreated }) {
               No gyms yet — ask an admin to add one.
             </div>
           ) : (
-            <select
-              value={gymId}
-              onChange={(e) => setGymId(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
-              required
-            >
-              {gyms.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1 relative">
+              <button
+                type="button"
+                onClick={() => setGymOpen((v) => !v)}
+                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900"
+              >
+                {(() => {
+                  const sel = gyms.find((g) => String(g.id) === gymId)
+                  return sel ? (
+                    <>
+                      <div className="text-sm text-stone-900 dark:text-stone-100">{sel.name}</div>
+                      {sel.city && (
+                        <div className="text-xs text-stone-400 dark:text-stone-500">
+                          {sel.city}{sel.country ? `, ${sel.country}` : ''}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-sm text-stone-400 dark:text-stone-500">Select a gym</div>
+                  )
+                })()}
+              </button>
+              {gymOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setGymOpen(false)} />
+                  <div className="absolute z-20 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {gyms.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => { setGymId(String(g.id)); setGymOpen(false) }}
+                        className={`w-full px-3 py-2 text-left hover:bg-stone-50 dark:hover:bg-stone-800 ${String(g.id) === gymId ? 'bg-stone-50 dark:bg-stone-800' : ''}`}
+                      >
+                        <div className="text-sm text-stone-900 dark:text-stone-100">{g.name}</div>
+                        {g.city && (
+                          <div className="text-xs text-stone-400 dark:text-stone-500">
+                            {g.city}{g.country ? `, ${g.country}` : ''}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 

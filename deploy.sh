@@ -8,6 +8,7 @@ docker compose down
 docker compose up --build -d
 
 echo "==> Starting Tailscale Funnel on port 8080..."
+sudo tailscale funnel reset
 sudo tailscale funnel --bg 8080
 
 echo "==> Done. Status:"

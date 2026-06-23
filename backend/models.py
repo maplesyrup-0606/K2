@@ -103,11 +103,14 @@ class Post(db.Model):
     )
     photo_path = db.Column(db.String(500), nullable=False)
     notes = db.Column(db.Text)
+    hold_color = db.Column(db.String(7), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
+    gym_id = db.Column(db.Integer, db.ForeignKey('gyms.id'))
 
     # relations
     user = db.relationship('User', backref='posts')
     project = db.relationship('Project', backref='posts')
+    gym = db.relationship('Gym')
 
 class Project(db.Model):
     __tablename__ = 'projects'
@@ -165,6 +168,8 @@ class Gym(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
+    city = db.Column(db.String(120))
+    country = db.Column(db.String(120))
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,

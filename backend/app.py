@@ -256,7 +256,14 @@ def post_payload(post):
         'attempts_bucket': post.attempts_bucket,
         'photo_path': post.photo_path,
         'notes': post.notes,
+        'hold_color': post.hold_color,
         'project_id': post.project_id,
+        'gym': {
+            'id': post.gym.id,
+            'name': post.gym.name,
+            'city': post.gym.city,
+            'country': post.gym.country,
+        } if post.gym else None,
         'is_flash': post.outcome == 'sent' and post.attempts_bucket == '1',
         'user': {
             'id': post.user.id,
@@ -387,6 +394,10 @@ def create_post():
     if notes and len(notes) > 2000:
         return {'error': 'notes must be at most 2000 characters'}, 400
 
+    hold_color = form.get('hold_color')
+    if not hold_color or not re.match(r'^#[0-9a-fA-F]{6}$', hold_color):
+        return {'error': 'hold_color is required and must be a valid hex color (#RRGGBB)'}, 400
+
     project = None
     project_id_str = form.get('project_id')
     if project_id_str:
@@ -397,6 +408,16 @@ def create_post():
         project = db.session.get(Project, project_id)
         if project is None or project.user_id != current_user.id:
             return {'error': 'project not found'}, 400
+
+    gym_id_str = form.get('gym_id')
+    if not gym_id_str:
+        return {'error': 'gym_id is required'}, 400
+    try:
+        gym_id = int(gym_id_str)
+    except ValueError:
+        return {'error': 'gym_id must be an integer'}, 400
+    if db.session.get(Gym, gym_id) is None:
+        return {'error': 'gym not found'}, 400
 
     climbed_at_str = form.get('climbed_at')
     if climbed_at_str:
@@ -443,7 +464,9 @@ def create_post():
         attempts_bucket=attempts_bucket,
         photo_path=photo_path_rel,
         notes=notes,
+        hold_color=hold_color,
         project_id=project.id if project else None,
+        gym_id=gym_id,
     )
     
     db.session.add(post)
@@ -607,6 +630,24 @@ def update_post(post_id):
             if project is None or project.user_id != current_user.id:
                 return {'error': 'project not found'}, 400
             post.project_id = pid
+
+    if 'gym_id' in data:
+        if data['gym_id'] is None:
+            post.gym_id = None
+        else:
+            try:
+                gid = int(data['gym_id'])
+            except (ValueError, TypeError):
+                return {'error': 'gym_id must be an integer'}, 400
+            if db.session.get(Gym, gid) is None:
+                return {'error': 'gym not found'}, 400
+            post.gym_id = gid
+
+    if 'hold_color' in data:
+        hc = data['hold_color']
+        if hc is not None and not re.match(r'^#[0-9a-fA-F]{6}$', hc):
+            return {'error': 'hold_color must be a valid hex color (#RRGGBB)'}, 400
+        post.hold_color = hc
 
     db.session.commit()
     return post_payload(post)
@@ -866,6 +907,8 @@ def gym_payload(gym):
     return {
         'id': gym.id,
         'name': gym.name,
+        'city': gym.city,
+        'country': gym.country,
         'created_at': gym.created_at.isoformat()
     }
 
@@ -878,11 +921,19 @@ def add_gym():
     if not (1 <= len(name) <= 120):
         return {'error': 'name must be 1-120 chars'}, 400
 
+    city = (data.get('city') or '').strip() or None
+    if city and len(city) > 120:
+        return {'error': 'city must be 1-120 chars'}, 400
+
+    country = (data.get('country') or '').strip() or None
+    if country and len(country) > 120:
+        return {'error': 'country must be 1-120 chars'}, 400
+
     existing = Gym.query.filter_by(name=name).first()
     if existing is not None:
         return gym_payload(existing), 200
 
-    gym = Gym(name=name)
+    gym = Gym(name=name, city=city, country=country)
     db.session.add(gym)
     db.session.commit()
     return gym_payload(gym), 201
@@ -909,9 +960,21 @@ def update_gym(gym_id):
         existing = Gym.query.filter_by(name=name).first()
         if existing is not None and existing.id != gym_id:
             return {'error': 'name already taken'}, 409
-    
+
         gym.name = name
-    
+
+    if 'city' in data:
+        city = (data['city'] or '').strip() or None
+        if city and len(city) > 120:
+            return {'error': 'city must be 1-120 chars'}, 400
+        gym.city = city
+
+    if 'country' in data:
+        country = (data['country'] or '').strip() or None
+        if country and len(country) > 120:
+            return {'error': 'country must be 1-120 chars'}, 400
+        gym.country = country
+
     db.session.commit()
     return gym_payload(gym)
 
@@ -942,6 +1005,8 @@ def plan_payload(plan):
         'gym': {
             'id': plan.gym.id,
             'name': plan.gym.name,
+            'city': plan.gym.city,
+            'country': plan.gym.country,
         },
         'organizer': {
             'id': plan.user.id,

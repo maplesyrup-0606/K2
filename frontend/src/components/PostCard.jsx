@@ -171,7 +171,13 @@ export default function PostCard({
 
       {/* Meta */}
       <div className="px-4 py-3">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-2">
+          {post.hold_color && (
+            <span
+              className="inline-block w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-stone-300 dark:ring-stone-600"
+              style={{ backgroundColor: post.hold_color }}
+            />
+          )}
           <span className="text-2xl font-bold tracking-tight">{gradeLabel}</span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
@@ -182,6 +188,12 @@ export default function PostCard({
             {post.attempts_bucket} attempts
           </span>
         </div>
+        {post.gym && (
+          <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">
+            {post.gym.name}
+            {post.gym.city && <span> · {post.gym.city}{post.gym.country ? `, ${post.gym.country}` : ''}</span>}
+          </div>
+        )}
 
         {post.notes && (
           <p className="mt-2 text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap">

@@ -76,15 +76,15 @@ export const api = {
   deleteProject: (id) =>
     request(`/api/projects/${id}`, { method: 'DELETE' }),
   listGyms: () => request('/api/gyms'),
-  addGym: (name) =>
+  addGym: ({ name, city, country }) =>
     request('/api/admin/gyms', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, city, country }),
     }),
-  updateGym: (id, name) =>
+  updateGym: (id, { name, city, country }) =>
     request(`/api/admin/gyms/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, city, country }),
     }),
   removeGym: (id) =>
     request(`/api/admin/gyms/${id}`, { method: 'DELETE' }),
