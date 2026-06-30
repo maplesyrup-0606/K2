@@ -178,7 +178,7 @@ export default function PostCard({
               style={{ backgroundColor: post.hold_color }}
             />
           )}
-          <span className="text-2xl font-bold tracking-tight">{gradeLabel}</span>
+          <span className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-100">{gradeLabel}</span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
           >

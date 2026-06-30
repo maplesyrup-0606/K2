@@ -3,7 +3,7 @@ import { api } from '../api'
 export default function Login() {
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex flex-col items-center justify-center p-6">
-      <h1 className="text-6xl font-bold tracking-tight">K2</h1>
+      <h1 className="text-6xl font-bold tracking-tight text-stone-900 dark:text-stone-100">K2</h1>
       <p className="mt-3 text-stone-500 dark:text-stone-400">Climbing log for friends</p>
 
       <a

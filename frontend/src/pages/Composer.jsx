@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
+import GymPickerSheet from '../components/GymPickerSheet'
 
 const HOLD_COLORS = [
   { hex: '#EF4444', name: 'Red' },
@@ -35,9 +36,7 @@ function drawImageCover(ctx, img, W, H) {
   ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, W, H)
 }
 
-// Returns an overlay canvas: dark everywhere, feathered-transparent inside the lasso.
 function buildOverlay(W, H, points) {
-  // Mask: blurred white shape inside the lasso path → opaque inside, transparent outside
   const maskCanvas = document.createElement('canvas')
   maskCanvas.width = W
   maskCanvas.height = H
@@ -51,7 +50,6 @@ function buildOverlay(W, H, points) {
   mCtx.fill()
   mCtx.filter = 'none'
 
-  // Overlay: fill dark, then erase where mask is opaque (inside lasso)
   const oCanvas = document.createElement('canvas')
   oCanvas.width = W
   oCanvas.height = H
@@ -97,26 +95,42 @@ function getCanvasPoint(e, canvas) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function Composer({ user, onClose, onPosted }) {
-  const [photo, setPhoto] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState(null)
-  const [gradeScale, setGradeScale] = useState('v')
-  const [gradeValue, setGradeValue] = useState(0)
-  const [outcome, setOutcome] = useState('sent')
-  const [attempts, setAttempts] = useState('1')
-  const [notes, setNotes] = useState('')
-  const [holdColor, setHoldColor] = useState(null)
+export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
+  const isEdit = !!post
+
+  // Shared state — seeded from post when editing
+  const [gradeScale, setGradeScale] = useState(post?.grade_scale ?? 'v')
+  const [gradeValue, setGradeValue] = useState(post?.grade_value ?? 0)
+  const [outcome, setOutcome] = useState(post?.outcome ?? 'sent')
+  const [attempts, setAttempts] = useState(post?.attempts_bucket ?? '1')
+  const [notes, setNotes] = useState(post?.notes ?? '')
+  const [holdColor, setHoldColor] = useState(post?.hold_color ?? null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
   const [gyms, setGyms] = useState([])
-  const [gymId, setGymId] = useState('')
+  const [gymId, setGymId] = useState(post?.gym ? String(post.gym.id) : '')
   const [gymOpen, setGymOpen] = useState(false)
 
+  // Create-only state
+  const [photo, setPhoto] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
   const [projectSelection, setProjectSelection] = useState(null)
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [activeProjects, setActiveProjects] = useState([])
   const [loadingProjects, setLoadingProjects] = useState(false)
+  const [lassoActive, setLassoActive] = useState(false)
+  const [lassoApplied, setLassoApplied] = useState(false)
+
+  const canvasRef = useRef(null)
+  const imgRef = useRef(null)
+  const originalFileRef = useRef(null)
+  const originalUrlRef = useRef(null)
+  const isDrawingRef = useRef(false)
+  const pointsRef = useRef([])
+
+  const gradeMin = gradeScale === 'v' ? 0 : 1
+  const gradeMax = gradeScale === 'v' ? 12 : 4
 
   useEffect(() => {
     let cancelled = false
@@ -124,34 +138,27 @@ export default function Composer({ user, onClose, onPosted }) {
       if (cancelled) return
       const list = ok ? data.gyms : []
       setGyms(list)
-      if (list.length > 0) setGymId(String(list[0].id))
+      if (!gymId && list.length > 0) setGymId(String(list[0].id))
     })
     return () => { cancelled = true }
   }, [])
 
-  // Lock body scroll for the duration the modal is mounted
+  // Lock body scroll — position:fixed is the only approach iOS Safari actually honors
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
+    }
   }, [])
 
-  // Lasso
-  const [lassoActive, setLassoActive] = useState(false)
-  const [lassoApplied, setLassoApplied] = useState(false)
-
-  const canvasRef = useRef(null)
-  const imgRef = useRef(null)          // original Image element for canvas redraws
-  const originalFileRef = useRef(null) // original File, preserved so Clear can restore it
-  const originalUrlRef = useRef(null)  // original blob URL
-  const isDrawingRef = useRef(false)
-  const pointsRef = useRef([])
-
-  const gradeMin = gradeScale === 'v' ? 0 : 1
-  const gradeMax = gradeScale === 'v' ? 9 : 4
-
   useEffect(() => {
-    if (!user?.username) return
+    if (isEdit || !user?.username) return
     let cancelled = false
     setLoadingProjects(true)
     api.listUserProjects(user.username, 'active').then(({ ok, data }) => {
@@ -160,38 +167,11 @@ export default function Composer({ user, onClose, onPosted }) {
       setLoadingProjects(false)
     })
     return () => { cancelled = true }
-  }, [user?.username])
-
-  function handleScaleChange(scale) {
-    setGradeScale(scale)
-    const min = scale === 'v' ? 0 : 1
-    const max = scale === 'v' ? 9 : 4
-    if (gradeValue < min) setGradeValue(min)
-    if (gradeValue > max) setGradeValue(max)
-    setProjectSelection(null)
-  }
-
-  function handlePhotoChange(e) {
-    const f = e.target.files[0]
-    if (!f) return
-    if (f.size > 20 * 1024 * 1024) {
-      setError('Photo must be under 20 MB')
-      return
-    }
-    setError(null)
-    const url = URL.createObjectURL(f)
-    originalFileRef.current = f
-    originalUrlRef.current = url
-    setPhoto(f)
-    setPhotoPreview(url)
-    setLassoActive(false)
-    setLassoApplied(false)
-    pointsRef.current = []
-  }
+  }, [isEdit, user?.username])
 
   // Load original image into canvas when lasso mode activates
   useEffect(() => {
-    if (!lassoActive) return
+    if (isEdit || !lassoActive) return
     const canvas = canvasRef.current
     if (!canvas || !originalUrlRef.current) return
 
@@ -208,11 +188,11 @@ export default function Composer({ user, onClose, onPosted }) {
       })
     }
     img.src = originalUrlRef.current
-  }, [lassoActive])
+  }, [isEdit, lassoActive])
 
   // Attach drawing event listeners (non-passive touch so we can preventDefault)
   useEffect(() => {
-    if (!lassoActive) return
+    if (isEdit || !lassoActive) return
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -236,15 +216,12 @@ export default function Composer({ user, onClose, onPosted }) {
       isDrawingRef.current = false
       const points = pointsRef.current
       if (points.length < 8) {
-        // Accidental tap — reset without applying
         renderFrame(canvas, imgRef.current, [])
         return
       }
       const overlay = buildOverlay(canvas.width, canvas.height, points)
       renderFrame(canvas, imgRef.current, points, overlay)
 
-      // Bake at full resolution using the image's natural dimensions, not the display canvas size.
-      // The display canvas is ~390px on mobile; the original photo may be 3000+ px.
       const img = imgRef.current
       const outputSize = Math.min(Math.min(img.naturalWidth, img.naturalHeight), 1200)
       const ratio = outputSize / canvas.width
@@ -282,7 +259,7 @@ export default function Composer({ user, onClose, onPosted }) {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onEnd)
     }
-  }, [lassoActive])
+  }, [isEdit, lassoActive])
 
   function handleClearLasso() {
     setPhoto(originalFileRef.current)
@@ -292,24 +269,66 @@ export default function Composer({ user, onClose, onPosted }) {
     pointsRef.current = []
   }
 
+  function handlePhotoChange(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    if (f.size > 20 * 1024 * 1024) {
+      setError('Photo must be under 20 MB')
+      return
+    }
+    setError(null)
+    const url = URL.createObjectURL(f)
+    originalFileRef.current = f
+    originalUrlRef.current = url
+    setPhoto(f)
+    setPhotoPreview(url)
+    setLassoActive(false)
+    setLassoApplied(false)
+    pointsRef.current = []
+  }
+
+  function handleScaleChange(scale) {
+    setGradeScale(scale)
+    const min = scale === 'v' ? 0 : 1
+    const max = scale === 'v' ? 9 : 4
+    if (gradeValue < min) setGradeValue(min)
+    if (gradeValue > max) setGradeValue(max)
+    if (!isEdit) setProjectSelection(null)
+  }
+
   const matchingProjects = activeProjects.filter(
     (p) => p.grade_scale === gradeScale && p.grade_value === gradeValue
   )
 
+  const gradeLabel = gradeScale === 'v' ? `V${gradeValue}` : `Comp ${gradeValue}`
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!photo) {
-      setError('Photo is required')
+
+    if (isEdit) {
+      if (!gymId) { setError('Pick a gym'); return }
+      setError(null)
+      setSubmitting(true)
+      const { ok, data } = await api.updatePost(post.id, {
+        grade_scale: gradeScale,
+        grade_value: gradeValue,
+        outcome,
+        attempts_bucket: attempts,
+        notes: notes.trim() || null,
+        hold_color: holdColor,
+        gym_id: Number(gymId),
+      })
+      setSubmitting(false)
+      if (!ok) { setError(data?.error || 'Failed to update'); return }
+      onUpdated(data)
+      onClose()
       return
     }
-    if (!holdColor) {
-      setError('Pick a hold color')
-      return
-    }
-    if (!gymId) {
-      setError('Pick a gym')
-      return
-    }
+
+    // Create mode
+    if (!photo) { setError('Photo is required'); return }
+    if (!holdColor) { setError('Pick a hold color'); return }
+    if (!gymId) { setError('Pick a gym'); return }
     if (projectSelection === 'new' && !newProjectTitle.trim()) {
       setError('Project title required')
       return
@@ -352,16 +371,11 @@ export default function Composer({ user, onClose, onPosted }) {
     const { ok, data } = await api.createPost(fd)
     setSubmitting(false)
 
-    if (!ok) {
-      setError(data?.error || 'Failed to post')
-      return
-    }
+    if (!ok) { setError(data?.error || 'Failed to post'); return }
 
     onPosted(data)
     onClose()
   }
-
-  const gradeLabel = gradeScale === 'v' ? `V${gradeValue}` : `Comp ${gradeValue}`
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
@@ -370,7 +384,7 @@ export default function Composer({ user, onClose, onPosted }) {
         className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain shadow-xl"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">New post</h2>
+          <h2 className="text-xl font-semibold">{isEdit ? 'Edit post' : 'New post'}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -381,63 +395,22 @@ export default function Composer({ user, onClose, onPosted }) {
           </button>
         </div>
 
-        {/* Photo area */}
+        {/* Photo — read-only in edit mode, upload+lasso in create mode */}
         <div className="aspect-square w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden relative border border-stone-200 dark:border-stone-800">
-
-          {/* Empty state */}
-          {!photoPreview && (
-            <label className="flex w-full h-full items-center justify-center cursor-pointer hover:bg-stone-200 dark:hover:bg-stone-700 transition">
-              <div className="text-stone-500 dark:text-stone-400 text-sm text-center">
-                <span className="text-2xl">＋</span>
-                <div>Add photo</div>
-              </div>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handlePhotoChange}
-                className="hidden"
-              />
-            </label>
-          )}
-
-          {/* Photo preview (not in lasso drawing mode) */}
-          {photoPreview && !lassoActive && (
+          {isEdit ? (
+            <img
+              src={`${api.baseUrl}/media/${post.photo_path}`}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
             <>
-              <img
-                src={photoPreview}
-                alt="preview"
-                className="w-full h-full object-cover"
-              />
-              {/* Bottom gradient bar with controls */}
-              <div
-                className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5"
-                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
-              >
-                {!lassoApplied ? (
-                  <button
-                    type="button"
-                    onClick={() => setLassoActive(true)}
-                    className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </svg>
-                    Highlight route
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleClearLasso}
-                    className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
-                    </svg>
-                    Redraw
-                  </button>
-                )}
-                <label className="cursor-pointer text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition">
-                  Change
+              {!photoPreview && (
+                <label className="flex w-full h-full items-center justify-center cursor-pointer hover:bg-stone-200 dark:hover:bg-stone-700 transition">
+                  <div className="text-stone-500 dark:text-stone-400 text-sm text-center">
+                    <span className="text-2xl">＋</span>
+                    <div>Add photo</div>
+                  </div>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -445,34 +418,82 @@ export default function Composer({ user, onClose, onPosted }) {
                     className="hidden"
                   />
                 </label>
-              </div>
-            </>
-          )}
+              )}
 
-          {/* Lasso drawing mode */}
-          {lassoActive && (
-            <>
-              <canvas
-                ref={canvasRef}
-                className="block w-full h-full"
-                style={{ touchAction: 'none', cursor: 'crosshair' }}
-              />
-              <div
-                className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5 pointer-events-none"
-                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
-              >
-                <span className="text-white/90 text-xs font-medium">Draw around your route</span>
-                <button
-                  type="button"
-                  onClick={() => setLassoActive(false)}
-                  className="pointer-events-auto text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
-                >
-                  Cancel
-                </button>
-              </div>
+              {photoPreview && !lassoActive && (
+                <>
+                  <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
+                  <div
+                    className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
+                  >
+                    {!lassoApplied ? (
+                      <button
+                        type="button"
+                        onClick={() => setLassoActive(true)}
+                        className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        Highlight route
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleClearLasso}
+                        className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                        </svg>
+                        Redraw
+                      </button>
+                    )}
+                    <label className="cursor-pointer text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition">
+                      Change
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {lassoActive && (
+                <>
+                  <canvas
+                    ref={canvasRef}
+                    className="block w-full h-full"
+                    style={{ touchAction: 'none', cursor: 'crosshair' }}
+                  />
+                  <div
+                    className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5 pointer-events-none"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}
+                  >
+                    <span className="text-white/90 text-xs font-medium">Draw around your route</span>
+                    <button
+                      type="button"
+                      onClick={() => setLassoActive(false)}
+                      className="pointer-events-auto text-white text-xs font-medium bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full px-3 py-1.5 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
+
+        {isEdit && (
+          <div className="text-xs text-stone-400 dark:text-stone-500 mt-1 text-center">
+            Photo can't be changed
+          </div>
+        )}
 
         {/* Grade scale + value */}
         <div className="mt-4">
@@ -480,10 +501,7 @@ export default function Composer({ user, onClose, onPosted }) {
             Grade
           </label>
           <div className="mt-2 flex gap-2">
-            {[
-              ['v', 'V'],
-              ['comp', 'Comp'],
-            ].map(([s, label]) => (
+            {[['v', 'V'], ['comp', 'Comp']].map(([s, label]) => (
               <button
                 key={s}
                 type="button"
@@ -503,7 +521,7 @@ export default function Composer({ user, onClose, onPosted }) {
               <button
                 key={n}
                 type="button"
-                onClick={() => { setGradeValue(n); setProjectSelection(null) }}
+                onClick={() => { setGradeValue(n); if (!isEdit) setProjectSelection(null) }}
                 className={`py-1.5 rounded-lg text-sm font-medium transition ${
                   gradeValue === n
                     ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
@@ -552,7 +570,7 @@ export default function Composer({ user, onClose, onPosted }) {
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   outcome === v
                     ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
                 }`}
               >
                 {label}
@@ -561,72 +579,74 @@ export default function Composer({ user, onClose, onPosted }) {
           </div>
         </div>
 
-        {/* Project linking */}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-            Link to a project?{' '}
-            <span className="text-stone-400 dark:text-stone-500">(optional)</span>
-          </label>
-          <div className="mt-2 space-y-2">
-            {loadingProjects && (
-              <div className="text-xs text-stone-400 dark:text-stone-500">Loading…</div>
-            )}
+        {/* Project linking — create only */}
+        {!isEdit && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+              Link to a project?{' '}
+              <span className="text-stone-400 dark:text-stone-500">(optional)</span>
+            </label>
+            <div className="mt-2 space-y-2">
+              {loadingProjects && (
+                <div className="text-xs text-stone-400 dark:text-stone-500">Loading…</div>
+              )}
 
-            {!loadingProjects && matchingProjects.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {matchingProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProjectSelection(projectSelection === p.id ? null : p.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition border ${
-                      projectSelection === p.id
-                        ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900'
-                        : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/50'
-                    }`}
-                  >
-                    {p.title}
-                  </button>
-                ))}
-              </div>
-            )}
+              {!loadingProjects && matchingProjects.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {matchingProjects.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setProjectSelection(projectSelection === p.id ? null : p.id)}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition border ${
+                        projectSelection === p.id
+                          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900'
+                          : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/50'
+                      }`}
+                    >
+                      {p.title}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {!loadingProjects && matchingProjects.length === 0 && (
-              <div className="text-xs text-stone-400 dark:text-stone-500">
-                No existing {gradeLabel} projects.
-              </div>
-            )}
+              {!loadingProjects && matchingProjects.length === 0 && (
+                <div className="text-xs text-stone-400 dark:text-stone-500">
+                  No existing {gradeLabel} projects.
+                </div>
+              )}
 
-            {projectSelection !== 'new' ? (
-              <button
-                type="button"
-                onClick={() => setProjectSelection('new')}
-                className="text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 underline"
-              >
-                + New project
-              </button>
-            ) : (
-              <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg p-3 space-y-2">
-                <input
-                  type="text"
-                  value={newProjectTitle}
-                  onChange={(e) => setNewProjectTitle(e.target.value)}
-                  placeholder={`Title (e.g. "orange ${gradeLabel} cave")`}
-                  maxLength={120}
-                  autoFocus
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
-                />
+              {projectSelection !== 'new' ? (
                 <button
                   type="button"
-                  onClick={() => { setProjectSelection(null); setNewProjectTitle('') }}
-                  className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+                  onClick={() => setProjectSelection('new')}
+                  className="text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 underline"
                 >
-                  Cancel
+                  + New project
                 </button>
-              </div>
-            )}
+              ) : (
+                <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg p-3 space-y-2">
+                  <input
+                    type="text"
+                    value={newProjectTitle}
+                    onChange={(e) => setNewProjectTitle(e.target.value)}
+                    placeholder={`Title (e.g. "orange ${gradeLabel} cave")`}
+                    maxLength={120}
+                    autoFocus
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setProjectSelection(null); setNewProjectTitle('') }}
+                    className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Attempts */}
         <div className="mt-4">
@@ -642,7 +662,7 @@ export default function Composer({ user, onClose, onPosted }) {
                 className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
                   attempts === a
                     ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
                 }`}
               >
                 {a}
@@ -662,7 +682,7 @@ export default function Composer({ user, onClose, onPosted }) {
             maxLength={2000}
             rows={2}
             placeholder="Beta, thoughts, etc."
-            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
+            className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
         </div>
 
@@ -674,62 +694,48 @@ export default function Composer({ user, onClose, onPosted }) {
           {gyms.length === 0 ? (
             <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading gyms…</div>
           ) : (
-            <div className="mt-1 relative">
-              <button
-                type="button"
-                onClick={() => setGymOpen((v) => !v)}
-                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900"
-              >
-                {(() => {
-                  const sel = gyms.find((g) => String(g.id) === gymId)
-                  return sel ? (
-                    <>
-                      <div className="text-sm text-stone-900 dark:text-stone-100">{sel.name}</div>
-                      {sel.city && (
-                        <div className="text-xs text-stone-400 dark:text-stone-500">
-                          {sel.city}{sel.country ? `, ${sel.country}` : ''}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-sm text-stone-400 dark:text-stone-500">Select a gym</div>
-                  )
-                })()}
-              </button>
-              {gymOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setGymOpen(false)} />
-                  <div className="absolute z-20 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {gyms.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => { setGymId(String(g.id)); setGymOpen(false) }}
-                        className={`w-full px-3 py-2 text-left hover:bg-stone-50 dark:hover:bg-stone-800 ${String(g.id) === gymId ? 'bg-stone-50 dark:bg-stone-800' : ''}`}
-                      >
-                        <div className="text-sm text-stone-900 dark:text-stone-100">{g.name}</div>
-                        {g.city && (
-                          <div className="text-xs text-stone-400 dark:text-stone-500">
-                            {g.city}{g.country ? `, ${g.country}` : ''}
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setGymOpen(true)}
+              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900"
+            >
+              {(() => {
+                const sel = gyms.find((g) => String(g.id) === gymId)
+                return sel ? (
+                  <>
+                    <div className="text-sm text-stone-900 dark:text-stone-100">{sel.name}</div>
+                    {sel.city && (
+                      <div className="text-xs text-stone-400 dark:text-stone-500">
+                        {sel.city}{sel.country ? `, ${sel.country}` : ''}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-stone-400 dark:text-stone-500">Select a gym</div>
+                )
+              })()}
+            </button>
           )}
         </div>
+
+        <GymPickerSheet
+          gyms={gyms}
+          gymId={gymId}
+          onSelect={setGymId}
+          open={gymOpen}
+          onClose={() => setGymOpen(false)}
+        />
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
-          disabled={submitting || !photo}
+          disabled={submitting || (!isEdit && !photo)}
           className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Posting…' : 'Post'}
+          {isEdit
+            ? (submitting ? 'Saving…' : 'Save')
+            : (submitting ? 'Posting…' : 'Post')}
         </button>
       </form>
     </div>

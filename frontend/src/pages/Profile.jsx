@@ -4,7 +4,7 @@ import { api } from '../api'
 import PostCard from '../components/PostCard'
 import StatsPanel from '../components/StatsPanel'
 import ProjectCard from '../components/ProjectCard'
-import EditPostModal from './EditPostModal'
+import Composer from './Composer'
 
 export default function Profile({ currentUser, onLogout }) {
   const { username } = useParams()
@@ -126,7 +126,7 @@ export default function Profile({ currentUser, onLogout }) {
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold tracking-tight">
+          <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
           </Link>
           <Link
@@ -303,7 +303,7 @@ export default function Profile({ currentUser, onLogout }) {
       </main>
 
       {editing && (
-        <EditPostModal
+        <Composer
           post={editing}
           onClose={() => setEditing(null)}
           onUpdated={handleUpdated}

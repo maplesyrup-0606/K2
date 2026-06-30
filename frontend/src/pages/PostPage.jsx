@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link, useParams, useNavigate, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
-import EditPostModal from './EditPostModal'
+import Composer from './Composer'
 
 export default function PostPage({ currentUser }) {
   const { id } = useParams()
@@ -53,7 +53,7 @@ export default function PostPage({ currentUser }) {
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold tracking-tight">
+          <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
           </Link>
           <Link to="/" className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
@@ -78,7 +78,7 @@ export default function PostPage({ currentUser }) {
       </main>
 
       {editing && (
-        <EditPostModal
+        <Composer
           post={editing}
           onClose={() => setEditing(null)}
           onUpdated={handleUpdated}
