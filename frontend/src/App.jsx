@@ -78,7 +78,7 @@ export default function App() {
             ) : !me.is_onboarded ? (
               <Navigate to="/onboarding" replace />
             ) : (
-              <Profile currentUser={me} onLogout={refresh} />
+              <Profile currentUser={me} onCurrentUserChange={setMe} onLogout={refresh} />
             )
           }
         />
@@ -135,6 +135,9 @@ export default function App() {
       </Routes>
 
       {me && me.is_onboarded && <BottomNav currentUser={me} />}
+      {import.meta.env.DEV && (
+        <div className="fixed top-0 inset-x-0 z-[9999] h-1.5 bg-amber-400 pointer-events-none" />
+      )}
     </BrowserRouter>
   )
 }

@@ -53,6 +53,12 @@ class User(db.Model, UserMixin):
         default=False
     )
 
+    profile_customized = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+
     email_notifications_enabled = db.Column(
         db.Boolean,
         nullable=False,

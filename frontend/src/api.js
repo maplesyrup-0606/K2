@@ -30,6 +30,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  updateAvatar: (file) => {
+    const fd = new FormData()
+    fd.append('photo', file)
+    return request('/api/users/me/avatar', { method: 'POST', body: fd })
+  },
   createPost: (formData) =>
     request('/api/posts', {
       method: 'POST',

@@ -221,6 +221,7 @@ def user_payload(user):
         'is_onboarded': user.is_onboarded,
         'is_admin': user.is_admin,
         'email_notifications_enabled': user.email_notifications_enabled,
+        'profile_customized': user.profile_customized,
     }
 
 def post_payload(post):
@@ -323,6 +324,8 @@ def auth_me():
     return user_payload(current_user)
 
 
+USERNAME_RE = re.compile(r'^[a-z0-9_]{3,30}$')
+
 @app.route('/api/users/me', methods=['PATCH'])
 @login_required
 def update_me():
@@ -335,6 +338,17 @@ def update_me():
         current_user.display_name = display_name
         if not current_user.is_onboarded:
             current_user.is_onboarded = True
+        current_user.profile_customized = True
+
+    if 'username' in data:
+        username = (data['username'] or '').strip().lower()
+        if not USERNAME_RE.match(username):
+            return {'error': 'username must be 3-30 characters: lowercase letters, numbers, underscores only'}, 400
+        if username != current_user.username:
+            if User.query.filter_by(username=username).first():
+                return {'error': 'username is already taken'}, 409
+            current_user.username = username
+        current_user.profile_customized = True
 
     if 'email_notifications_enabled' in data:
         val = data['email_notifications_enabled']
@@ -342,6 +356,40 @@ def update_me():
             return {'error': 'email_notifications_enabled must be a boolean'}, 400
         current_user.email_notifications_enabled = val
 
+    db.session.commit()
+    return user_payload(current_user)
+
+
+@app.route('/api/users/me/avatar', methods=['POST'])
+@login_required
+def update_avatar():
+    photo = request.files.get('photo')
+    if photo is None or photo.filename == '':
+        return {'error': 'photo is required'}, 400
+
+    if photo.mimetype not in ALLOWED_MIMES:
+        return {'error': 'photo must be jpeg, png, or webp'}, 400
+
+    try:
+        with Image.open(photo.stream) as img:
+            img.verify()
+    except (UnidentifiedImageError, OSError):
+        return {'error': 'photo is not a valid image'}, 400
+
+    photo.stream.seek(0)
+
+    user_dir = os.path.join(MEDIA_DIR, str(current_user.id))
+    os.makedirs(user_dir, exist_ok=True)
+    avatar_disk = os.path.join(user_dir, 'avatar.jpg')
+
+    with Image.open(photo.stream) as img:
+        img = ImageOps.exif_transpose(img)
+        img = img.convert('RGB')
+        img.thumbnail((400, 400), Image.LANCZOS)
+        img.save(avatar_disk, format='JPEG', quality=85, optimize=True)
+
+    current_user.avatar_url = f"/media/{current_user.id}/avatar.jpg"
+    current_user.profile_customized = True
     db.session.commit()
     return user_payload(current_user)
 
