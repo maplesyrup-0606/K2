@@ -31,7 +31,12 @@ CORS(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, 'app.db')}'
+# K2_DATABASE_URI must be honored here: Flask-SQLAlchemy 3.x creates the
+# engine at SQLAlchemy(app) time, so config changes after import are ignored.
+# Tests rely on this env var to avoid touching the real app.db.
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'K2_DATABASE_URI', f'sqlite:///{os.path.join(BASE_DIR, 'app.db')}'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -413,6 +418,19 @@ ALLOWED_MIMES = {
     'image/webp': '.webp',
 }
 
+def sync_project_status(project, outcome):
+    # Logging a terminal outcome against an active project closes it, so it
+    # shows up under the profile's Sent/Abandoned filters without a manual
+    # status change. Re-opening stays explicit (ProjectPage button).
+    if project is None or project.status != 'active':
+        return
+    if outcome == 'sent':
+        project.status = 'sent'
+        project.closed_at = datetime.now(timezone.utc)
+    elif outcome == 'gave_up':
+        project.status = 'abandoned'
+        project.closed_at = datetime.now(timezone.utc)
+
 @app.route('/api/posts', methods=['POST'])
 @login_required
 def create_post():
@@ -516,8 +534,9 @@ def create_post():
         project_id=project.id if project else None,
         gym_id=gym_id,
     )
-    
+
     db.session.add(post)
+    sync_project_status(project, outcome)
     db.session.commit()
 
     return post_payload(post), 201
@@ -696,6 +715,9 @@ def update_post(post_id):
         if hc is not None and not re.match(r'^#[0-9a-fA-F]{6}$', hc):
             return {'error': 'hold_color must be a valid hex color (#RRGGBB)'}, 400
         post.hold_color = hc
+
+    if post.project_id is not None:
+        sync_project_status(db.session.get(Project, post.project_id), post.outcome)
 
     db.session.commit()
     return post_payload(post)
