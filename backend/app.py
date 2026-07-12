@@ -41,6 +41,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
+# The remember_token cookie is separate from the session cookie and has
+# weaker Flask-Login defaults (SECURE=False, SAMESITE=None) — harden it too.
+app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SECURE'] = True
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 # 10MB
 
 MEDIA_DIR = os.path.join(BASE_DIR, 'media')
@@ -213,7 +218,7 @@ def google_callback():
         db.session.add(user)
         db.session.commit()
 
-    login_user(user)
+    login_user(user, remember=True, duration=timedelta(days=90))
     return redirect(FRONTEND_URL)
 
 def user_payload(user):
