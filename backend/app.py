@@ -11,10 +11,25 @@ from datetime import datetime, timezone, timedelta, date
 from PIL import Image, ImageOps, UnidentifiedImageError
 from functools import wraps
 import os, re, secrets, uuid, smtplib
+from difflib import SequenceMatcher
 from zoneinfo import ZoneInfo
 
 VANCOUVER_TZ = ZoneInfo('America/Vancouver')
 from email.mime.text import MIMEText
+
+
+def to_utc(dt):
+    """Normalize a datetime to aware UTC (naive input is assumed to be UTC)."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def iso_utc(dt):
+    """ISO 8601 with explicit UTC offset. SQLite hands back naive datetimes
+    for our stored-UTC columns; without the offset, browsers parse the string
+    as device-local time and every timestamp shifts by the UTC offset."""
+    return to_utc(dt).isoformat()
 
 
 load_dotenv()
@@ -54,7 +69,7 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager(app)
-from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, Notification
+from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, Notification, Follow
 
 oauth = OAuth(app)
 oauth.register(
@@ -91,7 +106,7 @@ def list_invites():
             {
                 'email': inv.email,
                 'invited_by': inv.invited_by,
-                'created_at': inv.created_at.isoformat()
+                'created_at': iso_utc(inv.created_at)
             }
             for inv in invites
         ]
@@ -158,7 +173,7 @@ def add_invite():
         return {
             'email': existing.email,
             'invited_by': existing.invited_by,
-            'created_at': existing.created_at.isoformat(),
+            'created_at': iso_utc(existing.created_at),
         }, 200
 
     invite = InviteAllowList(email=email, invited_by=current_user.id)
@@ -168,7 +183,7 @@ def add_invite():
     return {
         'email': invite.email,
         'invited_by': invite.invited_by,
-        'created_at': invite.created_at.isoformat(),
+        'created_at': iso_utc(invite.created_at),
     }, 201
     
 @app.route('/api/admin/invites/<email>', methods=['DELETE'])
@@ -259,8 +274,8 @@ def post_payload(post):
     return {
         'id': post.id,
         'user_id': post.user_id,
-        'created_at': post.created_at.isoformat(),
-        'climbed_at': post.climbed_at.isoformat(),
+        'created_at': iso_utc(post.created_at),
+        'climbed_at': iso_utc(post.climbed_at),
         'grade_scale': post.grade_scale,
         'grade_value': post.grade_value,
         'outcome': post.outcome,
@@ -299,12 +314,7 @@ def project_payload(project, include_posts=False):
     sessions_count = len(posts)
     attempts_lower = sum(ATTEMPTS_LOWER.get(p.attempts_bucket, 0) for p in posts)
 
-    # SQLite returns naive datetimes; we stored UTC, so promote to aware.
-    created_at = project.created_at
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
-
-    expires_at = created_at + timedelta(days=PROJECT_LIFETIME_DAYS)
+    expires_at = to_utc(project.created_at) + timedelta(days=PROJECT_LIFETIME_DAYS)
     is_expired = datetime.now(timezone.utc) > expires_at
 
     payload = {
@@ -315,9 +325,9 @@ def project_payload(project, include_posts=False):
         'grade_scale': project.grade_scale,
         'grade_value': project.grade_value,
         'status': project.status,
-        'created_at': project.created_at.isoformat(),
-        'closed_at': project.closed_at.isoformat() if project.closed_at else None,
-        'expires_at': expires_at.isoformat(),
+        'created_at': iso_utc(project.created_at),
+        'closed_at': iso_utc(project.closed_at) if project.closed_at else None,
+        'expires_at': iso_utc(expires_at),
         'is_expired': is_expired,
         'sessions': sessions_count,
         'attempts_lower_bound': attempts_lower,
@@ -493,7 +503,7 @@ def create_post():
     climbed_at_str = form.get('climbed_at')
     if climbed_at_str:
         try:
-            climbed_at = datetime.fromisoformat(climbed_at_str)
+            climbed_at = to_utc(datetime.fromisoformat(climbed_at_str))
         except ValueError:
             return {'error': 'climbed_at must be ISO 8601'}, 400
     else:
@@ -613,9 +623,94 @@ def get_user(username):
         'username': user.username,
         'display_name': user.display_name,
         'avatar_url': user.avatar_url,
-        'created_at': user.created_at.isoformat()
+        'created_at': iso_utc(user.created_at),
+        **_follow_state(user),
     }
-    
+
+
+def _follow_state(user):
+    return {
+        'follower_count': Follow.query.filter_by(followed_id=user.id).count(),
+        'following_count': Follow.query.filter_by(follower_id=user.id).count(),
+        'is_following': db.session.get(Follow, (current_user.id, user.id)) is not None,
+    }
+
+
+@app.route('/api/users/<username>/follow', methods=['POST'])
+@login_required
+def follow_user(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        return {'error': 'user not found'}, 404
+    if user.id == current_user.id:
+        return {'error': 'cannot follow yourself'}, 400
+    if db.session.get(Follow, (current_user.id, user.id)) is None:
+        db.session.add(Follow(follower_id=current_user.id, followed_id=user.id))
+        db.session.commit()
+    return _follow_state(user)
+
+
+@app.route('/api/users/<username>/follow', methods=['DELETE'])
+@login_required
+def unfollow_user(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        return {'error': 'user not found'}, 404
+    existing = db.session.get(Follow, (current_user.id, user.id))
+    if existing is not None:
+        db.session.delete(existing)
+        db.session.commit()
+    return _follow_state(user)
+
+
+def _fuzzy_subsequence(q, text):
+    """True if the chars of q appear in text in order (editor-style fuzzy find)."""
+    pos = 0
+    for ch in q:
+        pos = text.find(ch, pos)
+        if pos == -1:
+            return False
+        pos += 1
+    return True
+
+
+@app.route('/api/users', methods=['GET'])
+@login_required
+def search_users():
+    q = request.args.get('q', '').strip().lower()
+    if not q:
+        return {'users': []}
+
+    def score(user):
+        best = 0.0
+        for field in (user.username, user.display_name):
+            text = (field or '').lower()
+            if not text or not _fuzzy_subsequence(q, text):
+                continue
+            s = SequenceMatcher(None, q, text).ratio()
+            # Prefix and substring hits rank above scattered subsequences
+            if text.startswith(q):
+                s += 1.0
+            elif q in text:
+                s += 0.5
+            best = max(best, s)
+        return best
+
+    # User base is small (invite-only), so scoring in Python is fine
+    candidates = User.query.filter_by(is_onboarded=True).all()
+    scored = [(score(u), u) for u in candidates]
+    matches = sorted(
+        (item for item in scored if item[0] > 0),
+        key=lambda item: item[0],
+        reverse=True,
+    )[:20]
+    return {'users': [{
+        'id': u.id,
+        'username': u.username,
+        'display_name': u.display_name,
+        'avatar_url': u.avatar_url,
+    } for _, u in matches]}
+
 @app.route('/api/users/<username>/posts', methods=['GET'])
 @login_required
 def list_user_posts(username):
@@ -984,7 +1079,7 @@ def gym_payload(gym):
         'name': gym.name,
         'city': gym.city,
         'country': gym.country,
-        'created_at': gym.created_at.isoformat()
+        'created_at': iso_utc(gym.created_at)
     }
 
 @app.route('/api/admin/gyms', methods=['POST'])
@@ -1069,13 +1164,10 @@ def remove_gym(gym_id):
     return '', 204
 
 def plan_payload(plan):
-    planned_at = plan.planned_at
-    if planned_at.tzinfo is None:
-        planned_at = planned_at.replace(tzinfo=timezone.utc)
     return {
         'id': plan.id,
-        'created_at': plan.created_at.isoformat(),
-        'planned_at': planned_at.isoformat(),
+        'created_at': iso_utc(plan.created_at),
+        'planned_at': iso_utc(plan.planned_at),
         'note': plan.note,
         'gym': {
             'id': plan.gym.id,
@@ -1120,11 +1212,9 @@ def create_plan():
     if not planned_at_str:
         return {'error': 'planned_at is required'}, 400
     try:
-        planned_at = datetime.fromisoformat(planned_at_str)
+        planned_at = to_utc(datetime.fromisoformat(planned_at_str))
     except ValueError:
         return {'error': 'planned_at must be ISO 8601'}, 400
-    if planned_at.tzinfo is None:
-        planned_at = planned_at.replace(tzinfo=timezone.utc)
     if planned_at < datetime.now(timezone.utc):
         return {'error': 'planned_at must be in the future'}, 400
     
@@ -1244,11 +1334,9 @@ def update_plan(plan_id):
 
     if 'planned_at' in data:
         try:
-            planned_at = datetime.fromisoformat(data['planned_at'])
+            planned_at = to_utc(datetime.fromisoformat(data['planned_at']))
         except (ValueError, TypeError):
             return {'error': 'planned_at must be ISO 8601'}, 400
-        if planned_at.tzinfo is None:
-            planned_at = planned_at.replace(tzinfo=timezone.utc)
         if planned_at < datetime.now(timezone.utc):
             return {'error': 'planned_at must be in the future'}, 400
         plan.planned_at = planned_at
@@ -1300,7 +1388,7 @@ def notification_payload(n):
         'id': n.id,
         'type': n.type,
         'is_read': n.is_read,
-        'created_at': n.created_at.isoformat(),
+        'created_at': iso_utc(n.created_at),
         'actor': {
             'id': n.actor.id,
             'username': n.actor.username,

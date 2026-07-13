@@ -146,13 +146,25 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
       if (usernameChanged) {
         setSaving(false)
         setEditOpen(false)
-        navigate(`/profile/${data.username}`, { replace: true })
+        navigate(`/u/${data.username}`, { replace: true })
         return
       }
     }
 
     setSaving(false)
     setEditOpen(false)
+  }
+
+  const [followBusy, setFollowBusy] = useState(false)
+
+  async function toggleFollow() {
+    if (followBusy || !profile) return
+    setFollowBusy(true)
+    const call = profile.is_following ? api.unfollowUser : api.followUser
+    const { ok, data } = await call(profile.username)
+    setFollowBusy(false)
+    if (!ok) return
+    setProfile((prev) => ({ ...prev, ...data }))
   }
 
   async function loadMore() {
@@ -241,14 +253,34 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
                 <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
                   Joined {new Date(profile.created_at).toLocaleDateString()}
                 </div>
+                <div className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                  <span className="font-medium text-stone-700 dark:text-stone-300">{profile.follower_count}</span>{' '}
+                  {profile.follower_count === 1 ? 'follower' : 'followers'}
+                  {' · '}
+                  <span className="font-medium text-stone-700 dark:text-stone-300">{profile.following_count}</span>{' '}
+                  following
+                </div>
               </div>
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <button
                   type="button"
                   onClick={openEdit}
                   className="text-xs text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition"
                 >
                   Edit
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toggleFollow}
+                  disabled={followBusy}
+                  className={`text-sm font-medium px-4 py-1.5 rounded-xl transition disabled:opacity-50 ${
+                    profile.is_following
+                      ? 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                      : 'bg-violet-600 text-white hover:bg-violet-700'
+                  }`}
+                >
+                  {profile.is_following ? 'Following' : 'Follow'}
                 </button>
               )}
             </div>

@@ -73,6 +73,13 @@ export default function Home({ user, onLogout }) {
             >
               Plans
             </Link>
+            <Link
+              to="/people"
+              className="text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-lg leading-none p-1"
+              aria-label="Search climbers"
+            >
+              🔍
+            </Link>
             <NotificationsBell />
             <ThemeToggle />
             {user.is_admin && (

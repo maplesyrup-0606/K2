@@ -8,6 +8,7 @@ import Profile from './pages/Profile'
 import ProjectPage from './pages/ProjectPage'
 import PostPage from './pages/PostPage'
 import Plans from './pages/Plans'
+import People from './pages/People'
 import Admin from './pages/Admin'
 import Install from './pages/Install'
 import BottomNav from './components/BottomNav'
@@ -103,6 +104,18 @@ export default function App() {
               <Navigate to="/onboarding" replace />
             ) : (
               <PostPage currentUser={me} />
+            )
+          }
+        />
+        <Route
+          path="/people"
+          element={
+            !me ? (
+              <Navigate to="/login" replace />
+            ) : !me.is_onboarded ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <People />
             )
           }
         />

@@ -59,8 +59,14 @@ export const api = {
     request(`/api/posts/${postId}/reactions/${encodeURIComponent(emoji)}`, {
       method: 'DELETE',
     }),
+  searchUsers: (q) =>
+    request(`/api/users?q=${encodeURIComponent(q)}`),
   getUserProfile: (username) =>
     request(`/api/users/${username}`),
+  followUser: (username) =>
+    request(`/api/users/${username}/follow`, { method: 'POST' }),
+  unfollowUser: (username) =>
+    request(`/api/users/${username}/follow`, { method: 'DELETE' }),
   listUserPosts: (username, offset = 0, limit = 20) =>
     request(`/api/users/${username}/posts?offset=${offset}&limit=${limit}`),
   getUserStats: (username, window = '30d') =>

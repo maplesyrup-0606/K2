@@ -244,6 +244,31 @@ class PlanAttendee(db.Model):
     plan = db.relationship('Plan', backref='attendees')
     user = db.relationship('User')
     
+class Follow(db.Model):
+    __tablename__ = 'follows'
+
+    follower_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+    )
+    followed_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+        index=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    follower = db.relationship('User', foreign_keys=[follower_id])
+    followed = db.relationship('User', foreign_keys=[followed_id])
+
+
 class Notification(db.Model):
     __tablename__ = 'notifications'
 
