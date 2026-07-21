@@ -1,6 +1,6 @@
 from conftest import make_user, login
 
-from models import Follow
+from models import Follow, Notification
 
 
 def test_follow_requires_login(client, db):
@@ -72,6 +72,33 @@ def test_unfollow(client, db):
 
     # unfollow when not following is a no-op
     assert client.delete('/api/users/bob/follow').status_code == 200
+
+
+def test_follow_notifies_followed_user(client, db):
+    """Following someone creates a notification for the person followed."""
+    alice = make_user(db, username='alice', email='alice@example.com')
+    bob = make_user(db, username='bob', email='bob@example.com')
+    login(client, alice)
+
+    resp = client.post('/api/users/bob/follow')
+    assert resp.status_code == 200
+
+    notif = Notification.query.filter_by(user_id=bob.id, actor_id=alice.id).first()
+    assert notif is not None
+    assert notif.type == 'follow'
+
+
+def test_follow_no_duplicate_notification(client, db):
+    """Following the same user twice only creates one notification."""
+    alice = make_user(db, username='alice', email='alice@example.com')
+    bob = make_user(db, username='bob', email='bob@example.com')
+    login(client, alice)
+
+    client.post('/api/users/bob/follow')
+    client.post('/api/users/bob/follow')
+
+    count = Notification.query.filter_by(user_id=bob.id, actor_id=alice.id, type='follow').count()
+    assert count == 1
 
 
 def test_follows_are_directional(client, db):

@@ -18,6 +18,10 @@ export default function PlanComposer({ onClose, onCreated }) {
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [following, setFollowing] = useState([])
+  const [loadingFollowing, setLoadingFollowing] = useState(true)
+  const [inviteIds, setInviteIds] = useState(new Set())
+  const [inviteQuery, setInviteQuery] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +36,36 @@ export default function PlanComposer({ onClose, onCreated }) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    api.listFollowing().then(({ ok, data }) => {
+      if (cancelled) return
+      setFollowing(ok ? data.users : [])
+      setLoadingFollowing(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function toggleInvite(id) {
+    setInviteIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const normalizedInviteQuery = inviteQuery.trim().toLowerCase()
+  const visibleFollowing = normalizedInviteQuery
+    ? following.filter(
+        (u) =>
+          u.username.toLowerCase().includes(normalizedInviteQuery) ||
+          u.display_name.toLowerCase().includes(normalizedInviteQuery)
+      )
+    : following
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -59,6 +93,7 @@ export default function PlanComposer({ onClose, onCreated }) {
       gym_id: Number(gymId),
       planned_at: isoWithTz,
       note: note.trim() || undefined,
+      invite_user_ids: Array.from(inviteIds),
     })
     setSubmitting(false)
 
@@ -191,6 +226,63 @@ export default function PlanComposer({ onClose, onCreated }) {
             placeholder="anything you want to add"
             className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
           />
+        </div>
+
+        {/* Invite */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+            Invite <span className="text-stone-400 dark:text-stone-500">(optional)</span>
+          </label>
+          {loadingFollowing ? (
+            <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading…</div>
+          ) : following.length === 0 ? (
+            <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">
+              Follow people to invite them to plans.
+            </div>
+          ) : (
+            <div className="mt-1">
+              {following.length > 6 && (
+                <input
+                  type="text"
+                  value={inviteQuery}
+                  onChange={(e) => setInviteQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full px-3 py-2 mb-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900"
+                />
+              )}
+              <div className="max-h-40 overflow-y-auto border border-stone-200 dark:border-stone-800 rounded-lg divide-y divide-stone-100 dark:divide-stone-800">
+                {visibleFollowing.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
+                    No matches.
+                  </div>
+                ) : (
+                  visibleFollowing.map((user) => (
+                    <label
+                      key={user.id}
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={inviteIds.has(user.id)}
+                        onChange={() => toggleInvite(user.id)}
+                        className="shrink-0"
+                      />
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0 flex items-center justify-center text-[10px]">
+                          {user.display_name?.[0] ?? '?'}
+                        </div>
+                      )}
+                      <span className="text-sm text-stone-900 dark:text-stone-100 truncate">
+                        {user.display_name}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}

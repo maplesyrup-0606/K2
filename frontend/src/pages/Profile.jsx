@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Link, useParams, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
 import StatsPanel from '../components/StatsPanel'
@@ -9,11 +9,6 @@ import Composer from './Composer'
 export default function Profile({ currentUser, onCurrentUserChange, onLogout }) {
   const { username } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const notifRef = useRef(null)
-  const [emailNotifs, setEmailNotifs] = useState(currentUser?.email_notifications_enabled ?? true)
-  const [savingNotifs, setSavingNotifs] = useState(false)
-
   // Edit profile state
   const [editOpen, setEditOpen] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState('')
@@ -77,27 +72,6 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
       cancelled = true
     }
   }, [username, projectStatus])
-
-  useEffect(() => {
-    if (searchParams.get('settings') !== 'notifications') return
-    const el = notifRef.current
-    if (!el) return
-    const timer = setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('ring-2', 'ring-violet-500', 'ring-offset-2')
-      setTimeout(() => el.classList.remove('ring-2', 'ring-violet-500', 'ring-offset-2'), 2000)
-    }, 400)
-    return () => clearTimeout(timer)
-  }, [searchParams, loading])
-
-  async function toggleEmailNotifs() {
-    if (savingNotifs) return
-    const newVal = !emailNotifs
-    setSavingNotifs(true)
-    const { ok } = await api.updateMe({ email_notifications_enabled: newVal })
-    setSavingNotifs(false)
-    if (ok) setEmailNotifs(newVal)
-  }
 
   function openEdit() {
     setEditDisplayName(currentUser.display_name)
@@ -302,40 +276,6 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
                 >
                   Log out
                 </button>
-              </div>
-            )}
-
-            {/* Email notification toggle — own profile only */}
-            {isOwnProfile && (
-              <div
-                ref={notifRef}
-                className="mt-3 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-4 transition-all duration-200"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-stone-900 dark:text-stone-100">
-                      Email notifications
-                    </div>
-                    <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                      Get emailed on days when friends plan a climb you haven't joined
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={toggleEmailNotifs}
-                    disabled={savingNotifs}
-                    aria-label="Toggle email notifications"
-                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50 focus:outline-none ${
-                      emailNotifs ? 'bg-violet-600' : 'bg-stone-300 dark:bg-stone-600'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                        emailNotifs ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
               </div>
             )}
 

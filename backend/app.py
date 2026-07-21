@@ -5,16 +5,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 from flask_cors import CORS
-from sqlalchemy import func, or_, update as sql_update
+from sqlalchemy import func, or_
 from authlib.integrations.flask_client import OAuth
-from datetime import datetime, timezone, timedelta, date
+from datetime import datetime, timezone, timedelta
 from PIL import Image, ImageOps, UnidentifiedImageError
 from functools import wraps
 import os, re, secrets, uuid, smtplib
 from difflib import SequenceMatcher
-from zoneinfo import ZoneInfo
-
-VANCOUVER_TZ = ZoneInfo('America/Vancouver')
 from email.mime.text import MIMEText
 
 
@@ -69,7 +66,7 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager(app)
-from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, Notification, Follow
+from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, PlanInvite, Notification, Follow
 
 oauth = OAuth(app)
 oauth.register(
@@ -145,19 +142,6 @@ def send_invite_email(to_email):
     </div>
     """
     _send_email(to_email, "You've been invited to K2", html)
-
-
-def send_plan_notification_email(to_email, going_phrase, gym_name, time_str, plans_url, settings_url):
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0c0a09;color:#f5f5f4;border-radius:12px;">
-      <h1 style="font-size:48px;font-weight:800;color:#863bff;margin:0 0 8px;">K2</h1>
-      <p style="color:#a8a29e;margin:0 0 24px;">Climbing log for friends</p>
-      <p style="margin:0 0 32px;">{going_phrase} <strong>{gym_name}</strong> at {time_str} today.</p>
-      <a href="{plans_url}" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Join them →</a>
-      <p style="margin:32px 0 0;font-size:12px;color:#78716c;">You're getting this because you're on K2. <a href="{settings_url}" style="color:#a78bfa;text-decoration:none;">Manage notification settings</a></p>
-    </div>
-    """
-    _send_email(to_email, f"Climbing at {gym_name} today — want in?", html)
 
 
 @app.route('/api/admin/invites', methods=['POST'])
@@ -245,7 +229,6 @@ def user_payload(user):
         'avatar_url': user.avatar_url,
         'is_onboarded': user.is_onboarded,
         'is_admin': user.is_admin,
-        'email_notifications_enabled': user.email_notifications_enabled,
         'profile_customized': user.profile_customized,
     }
 
@@ -369,12 +352,6 @@ def update_me():
                 return {'error': 'username is already taken'}, 409
             current_user.username = username
         current_user.profile_customized = True
-
-    if 'email_notifications_enabled' in data:
-        val = data['email_notifications_enabled']
-        if not isinstance(val, bool):
-            return {'error': 'email_notifications_enabled must be a boolean'}, 400
-        current_user.email_notifications_enabled = val
 
     db.session.commit()
     return user_payload(current_user)
@@ -646,8 +623,37 @@ def follow_user(username):
         return {'error': 'cannot follow yourself'}, 400
     if db.session.get(Follow, (current_user.id, user.id)) is None:
         db.session.add(Follow(follower_id=current_user.id, followed_id=user.id))
+        db.session.add(Notification(
+            user_id=user.id,
+            actor_id=current_user.id,
+            type='follow',
+        ))
         db.session.commit()
+        prune_notifications(user.id)
     return _follow_state(user)
+
+
+@app.route('/api/users/me/following', methods=['GET'])
+@login_required
+def list_following():
+    followees = (
+        db.session.query(User)
+        .join(Follow, Follow.followed_id == User.id)
+        .filter(Follow.follower_id == current_user.id)
+        .order_by(User.display_name.asc())
+        .all()
+    )
+    return {
+        'users': [
+            {
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name,
+                'avatar_url': u.avatar_url,
+            }
+            for u in followees
+        ]
+    }
 
 
 @app.route('/api/users/<username>/follow', methods=['DELETE'])
@@ -1190,8 +1196,17 @@ def plan_payload(plan):
             }
             for pa in plan.attendees
         ],
+        'invited': [
+            {
+                'id': pi.user.id,
+                'username': pi.user.username,
+                'display_name': pi.user.display_name,
+                'avatar_url': pi.user.avatar_url,
+            }
+            for pi in plan.invites
+        ],
     }
-    
+
 @app.route('/api/plans', methods=['POST'])
 @login_required
 def create_plan():
@@ -1225,23 +1240,52 @@ def create_plan():
             return {'error': 'note must be at most 500 chars'}, 400
         if note == '':
             note = None
-            
+
+    invite_user_ids = data.get('invite_user_ids') or []
+    if not isinstance(invite_user_ids, list):
+        return {'error': 'invite_user_ids must be a list'}, 400
+    try:
+        invite_user_ids = {int(x) for x in invite_user_ids}
+    except (ValueError, TypeError):
+        return {'error': 'invite_user_ids must be integers'}, 400
+
+    if invite_user_ids:
+        followed_ids = {
+            row.followed_id for row in Follow.query.filter(
+                Follow.follower_id == current_user.id,
+                Follow.followed_id.in_(invite_user_ids),
+            ).all()
+        }
+        if followed_ids != invite_user_ids:
+            return {'error': 'can only invite people you follow'}, 400
+
     plan = Plan(
         user_id=current_user.id,
         gym_id=gym_id,
         planned_at=planned_at,
         note=note,
     )
-    
+
     db.session.add(plan)
     db.session.flush()
-    
+
     db.session.add(PlanAttendee(
         plan_id=plan.id,
         user_id=current_user.id,
     ))
-    
+
+    for uid in invite_user_ids:
+        db.session.add(PlanInvite(plan_id=plan.id, user_id=uid))
+        db.session.add(Notification(
+            user_id=uid,
+            actor_id=current_user.id,
+            type='plan_invite',
+            plan_id=plan.id,
+        ))
+
     db.session.commit()
+    for uid in invite_user_ids:
+        prune_notifications(uid)
     return plan_payload(plan), 201
 
 @app.route('/api/plans', methods=['GET'])
@@ -1450,79 +1494,6 @@ def serve_media(filepath):
     response = send_from_directory(MEDIA_DIR, filepath)
     response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
     return response
-
-def send_plan_day_emails():
-    with app.app_context():
-        try:
-            now_van = datetime.now(VANCOUVER_TZ)
-            today_date = now_van.date()
-            today_start_van = now_van.replace(hour=0, minute=0, second=0, microsecond=0)
-            tomorrow_start_van = today_start_van + timedelta(days=1)
-            today_start = today_start_van.astimezone(timezone.utc).replace(tzinfo=None)
-            tomorrow_start = tomorrow_start_van.astimezone(timezone.utc).replace(tzinfo=None)
-
-            plans = (
-                Plan.query
-                .filter(
-                    Plan.planned_at >= today_start,
-                    Plan.planned_at < tomorrow_start,
-                    or_(Plan.email_sent_date == None, Plan.email_sent_date != today_date),
-                )
-                .all()
-            )
-
-            for plan in plans:
-                result = db.session.execute(
-                    sql_update(Plan)
-                    .where(Plan.id == plan.id)
-                    .where(or_(Plan.email_sent_date == None, Plan.email_sent_date != today_date))
-                    .values(email_sent_date=today_date)
-                )
-                db.session.commit()
-                if result.rowcount == 0:
-                    continue
-
-                attendee_ids = {a.user_id for a in plan.attendees}
-                recipients = User.query.filter(
-                    User.id.notin_(attendee_ids),
-                    User.email_notifications_enabled == True,
-                ).all()
-
-                if not recipients:
-                    continue
-
-                organizer = plan.user
-                gym_name = plan.gym.name
-                count = len(attendee_ids)
-                if count == 1:
-                    going_phrase = f"{organizer.display_name} is heading to"
-                elif count == 2:
-                    going_phrase = f"{organizer.display_name} and 1 other are heading to"
-                else:
-                    going_phrase = f"{organizer.display_name} and {count - 1} others are heading to"
-
-                dt = plan.planned_at
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                dt = dt.astimezone(VANCOUVER_TZ)
-                hour = dt.strftime('%I').lstrip('0') or '12'
-                time_str = hour + dt.strftime(':%M %p PT')
-
-                plans_url = f"{FRONTEND_URL}/plans"
-                for user in recipients:
-                    settings_url = f"{FRONTEND_URL}/u/{user.username}?settings=notifications"
-                    send_plan_notification_email(
-                        user.email, going_phrase, gym_name, time_str, plans_url, settings_url
-                    )
-        except Exception as e:
-            print(f'[scheduler] plan email job failed: {e}')
-
-
-from apscheduler.schedulers.background import BackgroundScheduler
-_scheduler = BackgroundScheduler(daemon=True, timezone=VANCOUVER_TZ)
-_scheduler.add_job(send_plan_day_emails, 'cron', hour=8, minute=0, id='plan_day_emails', replace_existing=True)
-_scheduler.start()
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

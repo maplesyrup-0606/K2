@@ -27,6 +27,12 @@ function messageFor(n) {
   if (n.type === 'plan_join') {
     return <>joined your plan</>
   }
+  if (n.type === 'follow') {
+    return <>started following you</>
+  }
+  if (n.type === 'plan_invite') {
+    return <>invited you to a plan</>
+  }
   return <>did something</>
 }
 
@@ -67,8 +73,10 @@ export default function NotificationsBell() {
     // Navigate to the relevant page
     if (n.type === 'reaction' && n.post_id) {
       navigate(`/posts/${n.post_id}`)
-    } else if (n.type === 'plan_join') {
+    } else if (n.type === 'plan_join' || n.type === 'plan_invite') {
       navigate('/plans')
+    } else if (n.type === 'follow') {
+      navigate(`/u/${n.actor.username}`)
     }
   }
 

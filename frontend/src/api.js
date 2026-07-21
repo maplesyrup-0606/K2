@@ -67,6 +67,7 @@ export const api = {
     request(`/api/users/${username}/follow`, { method: 'POST' }),
   unfollowUser: (username) =>
     request(`/api/users/${username}/follow`, { method: 'DELETE' }),
+  listFollowing: () => request('/api/users/me/following'),
   listUserPosts: (username, offset = 0, limit = 20) =>
     request(`/api/users/${username}/posts?offset=${offset}&limit=${limit}`),
   getUserStats: (username, window = '30d') =>

@@ -59,12 +59,6 @@ class User(db.Model, UserMixin):
         default=False
     )
 
-    email_notifications_enabled = db.Column(
-        db.Boolean,
-        nullable=False,
-        default=True,
-    )
-
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -204,7 +198,6 @@ class Plan(db.Model):
         index=True,
     )
     note = db.Column(db.Text)
-    email_sent_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -243,7 +236,32 @@ class PlanAttendee(db.Model):
     # relations
     plan = db.relationship('Plan', backref='attendees')
     user = db.relationship('User')
-    
+
+
+class PlanInvite(db.Model):
+    __tablename__ = 'plan_invites'
+
+    plan_id = db.Column(
+        db.Integer,
+        db.ForeignKey('plans.id'),
+        primary_key=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+        index=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    plan = db.relationship('Plan', backref='invites')
+    user = db.relationship('User')
+
 class Follow(db.Model):
     __tablename__ = 'follows'
 
@@ -286,7 +304,7 @@ class Notification(db.Model):
         nullable=False,
     )
     type = db.Column(
-        db.Enum('reaction', 'plan_join', name='notification_type'),
+        db.Enum('reaction', 'plan_join', 'follow', 'plan_invite', name='notification_type'),
         nullable=False,
     )
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))

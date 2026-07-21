@@ -67,3 +67,11 @@ def login(client, user):
     with client.session_transaction() as sess:
         sess['_user_id'] = str(user.id)
         sess['_fresh'] = True
+    # The `db` fixture holds one Flask app context open for the whole test,
+    # so flask_login's per-app-context g._login_user cache survives across
+    # multiple client requests. Without clearing it, calling login() a
+    # second time in the same test (switching users) silently no-ops and
+    # every request keeps resolving to the first user.
+    from flask import g
+    if '_login_user' in g:
+        del g._login_user
