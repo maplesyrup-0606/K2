@@ -4,7 +4,20 @@ import { api } from '../api'
 import PostCard from '../components/PostCard'
 import StatsPanel from '../components/StatsPanel'
 import ProjectCard from '../components/ProjectCard'
+import FormField from '../components/FormField'
 import Composer from './Composer'
+
+const BIO_MAX_LEN = 160
+
+function InstagramIcon({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
 
 export default function Profile({ currentUser, onCurrentUserChange, onLogout }) {
   const { username } = useParams()
@@ -13,6 +26,8 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   const [editOpen, setEditOpen] = useState(false)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editUsername, setEditUsername] = useState('')
+  const [editBio, setEditBio] = useState('')
+  const [editInstagram, setEditInstagram] = useState('')
   const [editError, setEditError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -76,6 +91,8 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   function openEdit() {
     setEditDisplayName(currentUser.display_name)
     setEditUsername(currentUser.username)
+    setEditBio(currentUser.bio || '')
+    setEditInstagram(currentUser.instagram_handle || '')
     setEditError(null)
     setAvatarPreview(null)
     setAvatarFile(null)
@@ -102,27 +119,28 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
         return
       }
       if (onCurrentUserChange) onCurrentUserChange(data)
+      setProfile((prev) => (prev ? { ...prev, ...data } : prev))
     }
 
-    const nameChanged = editDisplayName.trim() !== currentUser.display_name
     const usernameChanged = editUsername.trim().toLowerCase() !== currentUser.username
-    if (nameChanged || usernameChanged) {
-      const { ok, data } = await api.updateMe({
-        display_name: editDisplayName.trim(),
-        username: editUsername.trim().toLowerCase(),
-      })
-      if (!ok) {
-        setEditError(data?.error || 'Failed to save profile')
-        setSaving(false)
-        return
-      }
-      if (onCurrentUserChange) onCurrentUserChange(data)
-      if (usernameChanged) {
-        setSaving(false)
-        setEditOpen(false)
-        navigate(`/u/${data.username}`, { replace: true })
-        return
-      }
+    const { ok, data } = await api.updateMe({
+      display_name: editDisplayName.trim(),
+      username: editUsername.trim().toLowerCase(),
+      bio: editBio.trim(),
+      instagram_handle: editInstagram.trim(),
+    })
+    if (!ok) {
+      setEditError(data?.error || 'Failed to save profile')
+      setSaving(false)
+      return
+    }
+    if (onCurrentUserChange) onCurrentUserChange(data)
+    setProfile((prev) => (prev ? { ...prev, ...data } : prev))
+    if (usernameChanged) {
+      setSaving(false)
+      setEditOpen(false)
+      navigate(`/u/${data.username}`, { replace: true })
+      return
     }
 
     setSaving(false)
@@ -224,6 +242,20 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
               <div className="flex-1">
                 <h1 className="text-xl font-semibold">{profile.display_name}</h1>
                 <div className="text-sm text-stone-400 dark:text-stone-500">@{profile.username}</div>
+                {profile.bio && (
+                  <p className="text-sm text-stone-600 dark:text-stone-300 mt-1.5 leading-snug">{profile.bio}</p>
+                )}
+                {profile.instagram_handle && (
+                  <a
+                    href={`https://instagram.com/${profile.instagram_handle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400 hover:text-violet-600 dark:hover:text-violet-400 transition"
+                  >
+                    <InstagramIcon className="w-3.5 h-3.5" />
+                    @{profile.instagram_handle}
+                  </a>
+                )}
                 <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
                   Joined {new Date(profile.created_at).toLocaleDateString()}
                 </div>
@@ -407,33 +439,45 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
               <div className="text-xs text-stone-400 dark:text-stone-500">Tap photo to change. JPEG, PNG, or WebP.</div>
             </div>
 
-            {/* Display name */}
-            <div>
-              <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Display name</label>
-              <input
-                type="text"
-                value={editDisplayName}
-                onChange={(e) => setEditDisplayName(e.target.value)}
-                maxLength={120}
-                className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-              />
-            </div>
+            <FormField
+              label="Display name"
+              type="text"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+              maxLength={120}
+            />
 
-            {/* Username */}
-            <div>
-              <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Username</label>
-              <div className="flex items-center rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 px-3 py-2 focus-within:ring-2 focus-within:ring-violet-500">
-                <span className="text-stone-400 dark:text-stone-500 text-sm mr-0.5">@</span>
-                <input
-                  type="text"
-                  value={editUsername}
-                  onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  maxLength={30}
-                  className="flex-1 bg-transparent text-sm text-stone-900 dark:text-stone-100 focus:outline-none"
-                />
-              </div>
-              <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">3–30 chars, lowercase letters, numbers, underscores</div>
-            </div>
+            <FormField
+              label="Username"
+              type="text"
+              prefix="@"
+              value={editUsername}
+              onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              maxLength={30}
+              hint="3–30 chars, lowercase letters, numbers, underscores"
+            />
+
+            <FormField
+              label="Bio"
+              textarea
+              rows={2}
+              value={editBio}
+              onChange={(e) => setEditBio(e.target.value)}
+              maxLength={BIO_MAX_LEN}
+              placeholder="A short line about you"
+              hint={`${editBio.length}/${BIO_MAX_LEN}`}
+            />
+
+            <FormField
+              label="Instagram"
+              type="text"
+              prefix="@"
+              value={editInstagram}
+              onChange={(e) => setEditInstagram(e.target.value)}
+              maxLength={30}
+              placeholder="yourhandle"
+              hint="Just the handle — no need for a full link"
+            />
 
             {editError && (
               <div className="text-sm text-red-500 dark:text-red-400">{editError}</div>

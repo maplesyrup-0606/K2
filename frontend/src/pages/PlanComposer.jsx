@@ -195,7 +195,7 @@ export default function PlanComposer({ onClose, onCreated }) {
               value={date}
               min={todayLocalDate()}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="mt-1 w-full appearance-none px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
               required
             />
           </div>
@@ -207,7 +207,7 @@ export default function PlanComposer({ onClose, onCreated }) {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900"
+              className="mt-1 w-full appearance-none px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100"
               required
             />
           </div>

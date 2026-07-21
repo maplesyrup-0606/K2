@@ -59,6 +59,8 @@ class User(db.Model, UserMixin):
         default=False
     )
 
+    bio = db.Column(db.String(160), nullable=True)
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -327,3 +329,26 @@ class Notification(db.Model):
     actor = db.relationship('User', foreign_keys=[actor_id])
     post = db.relationship('Post', foreign_keys=[post_id])
     plan = db.relationship('Plan', foreign_keys=[plan_id])
+
+
+class SocialLink(db.Model):
+    __tablename__ = 'social_links'
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+    )
+    platform = db.Column(
+        db.Enum('instagram', name='social_platform'),
+        primary_key=True,
+    )
+    handle = db.Column(db.String(60), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    user = db.relationship('User', backref='social_links')

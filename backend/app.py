@@ -66,7 +66,7 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager(app)
-from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, PlanInvite, Notification, Follow
+from models import User, InviteAllowList, Project, Post, Reaction, Gym, Plan, PlanAttendee, PlanInvite, Notification, Follow, SocialLink
 
 oauth = OAuth(app)
 oauth.register(
@@ -220,6 +220,11 @@ def google_callback():
     login_user(user, remember=True, duration=timedelta(days=90))
     return redirect(FRONTEND_URL)
 
+def _instagram_handle(user):
+    link = db.session.get(SocialLink, (user.id, 'instagram'))
+    return link.handle if link is not None else None
+
+
 def user_payload(user):
     return {
         'id': user.id,
@@ -230,6 +235,8 @@ def user_payload(user):
         'is_onboarded': user.is_onboarded,
         'is_admin': user.is_admin,
         'profile_customized': user.profile_customized,
+        'bio': user.bio,
+        'instagram_handle': _instagram_handle(user),
     }
 
 def post_payload(post):
@@ -328,6 +335,20 @@ def auth_me():
 
 
 USERNAME_RE = re.compile(r'^[a-z0-9_]{3,30}$')
+BIO_MAX_LEN = 160
+INSTAGRAM_HANDLE_RE = re.compile(r'^[a-zA-Z0-9_.]{1,30}$')
+
+
+def normalize_instagram_handle(raw):
+    """Accepts a bare handle, an @handle, or a pasted profile URL."""
+    value = raw.strip()
+    if not value:
+        return ''
+    match = re.search(r'instagram\.com/([a-zA-Z0-9_.]{1,30})', value)
+    if match:
+        return match.group(1)
+    return value[1:] if value.startswith('@') else value
+
 
 @app.route('/api/users/me', methods=['PATCH'])
 @login_required
@@ -352,6 +373,31 @@ def update_me():
                 return {'error': 'username is already taken'}, 409
             current_user.username = username
         current_user.profile_customized = True
+
+    if 'bio' in data:
+        bio = data['bio']
+        if bio is not None:
+            bio = bio.strip()
+            if len(bio) > BIO_MAX_LEN:
+                return {'error': f'bio must be at most {BIO_MAX_LEN} characters'}, 400
+            if bio == '':
+                bio = None
+        current_user.bio = bio
+
+    if 'instagram_handle' in data:
+        raw = data['instagram_handle']
+        handle = normalize_instagram_handle(raw) if raw else ''
+        existing_link = db.session.get(SocialLink, (current_user.id, 'instagram'))
+        if not handle:
+            if existing_link is not None:
+                db.session.delete(existing_link)
+        else:
+            if not INSTAGRAM_HANDLE_RE.match(handle):
+                return {'error': 'instagram_handle must be 1-30 letters, numbers, periods, or underscores'}, 400
+            if existing_link is None:
+                db.session.add(SocialLink(user_id=current_user.id, platform='instagram', handle=handle))
+            else:
+                existing_link.handle = handle
 
     db.session.commit()
     return user_payload(current_user)
@@ -600,6 +646,8 @@ def get_user(username):
         'username': user.username,
         'display_name': user.display_name,
         'avatar_url': user.avatar_url,
+        'bio': user.bio,
+        'instagram_handle': _instagram_handle(user),
         'created_at': iso_utc(user.created_at),
         **_follow_state(user),
     }
