@@ -10,3 +10,11 @@ html {
 html.dark {
   color-scheme: dark;
 }
+
+/* Stop rubber-band scroll from chaining past a container's own boundary —
+   this is what let iOS get stuck handing off residual scroll momentum to a
+   locked body when a modal's inner content hit the top/bottom edge. */
+html,
+body {
+  overscroll-behavior: none;
+}
