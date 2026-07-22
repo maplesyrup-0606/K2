@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Composer from './Composer'
 import PostCard from '../components/PostCard'
+import FabButton from '../components/FabButton'
 import NotificationsBell from '../components/NotificationsBell'
 import ThemeToggle from '../components/ThemeToggle'
 import { usePullToRefresh } from '../components/PullToRefresh'
@@ -169,14 +170,7 @@ export default function Home({ user, onLogout }) {
         )}
       </main>
 
-      <button
-        type="button"
-        onClick={() => setComposerOpen(true)}
-        className="fixed bottom-20 sm:bottom-6 right-6 h-14 w-14 rounded-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 text-3xl leading-none shadow-lg hover:bg-stone-700 dark:hover:bg-stone-300 active:scale-95 transition z-30"
-        aria-label="New post"
-      >
-        +
-      </button>
+      <FabButton onClick={() => setComposerOpen(true)} ariaLabel="New post" />
 
       {composerOpen && (
         <Composer
