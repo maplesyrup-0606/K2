@@ -88,15 +88,21 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
     return () => window.removeEventListener('resize', measure)
   }, [isEdit])
 
-  // Lock body scroll. Paired with `overscroll-behavior: none` on html/body
-  // (index.css) so iOS has nowhere to hand off rubber-band momentum when the
-  // modal's own scroll hits a boundary — the previous position:fixed +
-  // scrollY-restore hack left that handoff ambiguous, which is what caused
-  // the "stuck, needs a forceful swipe" scroll lock at the bottom of the form.
+  // Lock body scroll. `overflow: hidden` alone doesn't reliably block
+  // touch-driven scroll on iOS Safari — its touch event system can bypass it
+  // — so this pairs the position:fixed body-pin technique (the one iOS
+  // actually honors) with `overscroll-behavior: none` on html/body
+  // (index.css) as a second layer against rubber-band chaining.
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
     }
   }, [])
 
@@ -299,7 +305,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain shadow-xl"
+        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain shadow-xl"
       >
         <div className="flex items-center justify-between mb-4">
           {!isEdit && cards.length > 1 ? (
