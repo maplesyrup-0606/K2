@@ -449,7 +449,7 @@ def load_user(user_id):
 
 VALID_OUTCOMES = {'sent', 'projecting', 'gave_up'}
 VALID_ATTEMPTS = {'1', '2', '3-4', '5-9', '10+'}
-GRADE_RANGES = {'v': (0, 9), 'comp': (1, 4)}
+GRADE_RANGES = {'v': (0, 12), 'comp': (1, 4)}
 ALLOWED_MIMES = {
     'image/jpeg': '.jpg',
     'image/png':  '.png',

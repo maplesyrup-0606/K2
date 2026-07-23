@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { HOLD_COLORS, OUTCOMES, ATTEMPTS } from '../lib/postFieldOptions'
+import { HOLD_COLORS, OUTCOMES, ATTEMPTS, GRADE_RANGES } from '../lib/postFieldOptions'
 import { makeThumbnail } from '../lib/draftStorage'
+import { getImageAspectRatio } from '../lib/imageAspect'
 
 // ── Canvas helpers (route-highlight lasso tool) ────────────────────────────────
 
@@ -93,11 +94,12 @@ export default function PostFields({
   const imgRef = useRef(null)
   const originalFileRef = useRef(card.photoFile ?? null)
   const originalUrlRef = useRef(card.photoPreviewUrl ?? null)
+  const originalAspectRatioRef = useRef(card.photoAspectRatio ?? 1)
   const isDrawingRef = useRef(false)
   const pointsRef = useRef([])
 
-  const gradeMin = card.gradeScale === 'v' ? 0 : 1
-  const gradeMax = card.gradeScale === 'v' ? 12 : 4
+  const gradeMin = GRADE_RANGES[card.gradeScale].min
+  const gradeMax = GRADE_RANGES[card.gradeScale].max
   const gradeLabel = card.gradeScale === 'v' ? `V${card.gradeValue}` : `Comp ${card.gradeValue}`
 
   // Load original image into canvas when lasso mode activates
@@ -112,9 +114,8 @@ export default function PostFields({
       requestAnimationFrame(() => {
         const c = canvasRef.current
         if (!c) return
-        const size = c.offsetWidth || 400
-        c.width = size
-        c.height = size
+        c.width = c.offsetWidth || 400
+        c.height = c.offsetHeight || 400
         renderFrame(c, img, [])
       })
     }
@@ -154,16 +155,22 @@ export default function PostFields({
       renderFrame(canvas, imgRef.current, points, overlay)
 
       const img = imgRef.current
-      const outputSize = Math.min(Math.min(img.naturalWidth, img.naturalHeight), 1200)
-      const ratio = outputSize / canvas.width
-      const hiResPoints = points.map((pt) => ({ x: pt.x * ratio, y: pt.y * ratio }))
+      const canvasRatio = canvas.width / canvas.height
+      const maxDim = 1200
+      const outW = canvasRatio >= 1
+        ? Math.min(img.naturalWidth, maxDim)
+        : Math.min(img.naturalHeight, maxDim) * canvasRatio
+      const outH = outW / canvasRatio
+      const scaleX = outW / canvas.width
+      const scaleY = outH / canvas.height
+      const hiResPoints = points.map((pt) => ({ x: pt.x * scaleX, y: pt.y * scaleY }))
 
       const hiResCanvas = document.createElement('canvas')
-      hiResCanvas.width = outputSize
-      hiResCanvas.height = outputSize
+      hiResCanvas.width = outW
+      hiResCanvas.height = outH
       const hiResCtx = hiResCanvas.getContext('2d')
-      drawImageCover(hiResCtx, img, outputSize, outputSize)
-      hiResCtx.drawImage(buildOverlay(outputSize, outputSize, hiResPoints), 0, 0)
+      drawImageCover(hiResCtx, img, outW, outH)
+      hiResCtx.drawImage(buildOverlay(outW, outH, hiResPoints), 0, 0)
 
       hiResCanvas.toBlob((blob) => {
         if (!blob) return
@@ -199,7 +206,11 @@ export default function PostFields({
     setLassoApplied(false)
     setLassoActive(false)
     pointsRef.current = []
-    onChange({ photoFile: originalFileRef.current, photoPreviewUrl: originalUrlRef.current })
+    onChange({
+      photoFile: originalFileRef.current,
+      photoPreviewUrl: originalUrlRef.current,
+      photoAspectRatio: originalAspectRatioRef.current,
+    })
     if (originalFileRef.current) {
       makeThumbnail(originalFileRef.current).then((thumb) => {
         if (thumb) onChange({ photoThumbDataUrl: thumb })
@@ -221,15 +232,18 @@ export default function PostFields({
     setLassoActive(false)
     setLassoApplied(false)
     pointsRef.current = []
-    onChange({ photoFile: f, photoPreviewUrl: url, needsPhotoReattach: false })
+    onChange({ photoFile: f, photoPreviewUrl: url, needsPhotoReattach: false, photoAspectRatio: 1 })
+    getImageAspectRatio(f).then((ratio) => {
+      originalAspectRatioRef.current = ratio
+      onChange({ photoAspectRatio: ratio })
+    })
     makeThumbnail(f).then((thumb) => {
       if (thumb) onChange({ photoThumbDataUrl: thumb })
     })
   }
 
   function handleScaleChange(scale) {
-    const min = scale === 'v' ? 0 : 1
-    const max = scale === 'v' ? 9 : 4
+    const { min, max } = GRADE_RANGES[scale]
     const patch = { gradeScale: scale, projectSelection: null }
     if (card.gradeValue < min) patch.gradeValue = min
     if (card.gradeValue > max) patch.gradeValue = max
@@ -239,11 +253,14 @@ export default function PostFields({
   return (
     <div>
       {/* Photo — reattach prompt (post-restore), upload+lasso, or empty placeholder */}
-      <div className="aspect-square w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden relative border border-stone-200 dark:border-stone-800">
+      <div
+        className="w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden relative border border-stone-200 dark:border-stone-800"
+        style={{ aspectRatio: card.photoAspectRatio || 1 }}
+      >
         {card.needsPhotoReattach ? (
           <label className="relative flex w-full h-full items-center justify-center cursor-pointer">
             {card.photoThumbDataUrl && (
-              <img src={card.photoThumbDataUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+              <img src={card.photoThumbDataUrl} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
             )}
             <div className="relative text-white text-sm text-center px-4 py-2 bg-black/60 rounded-lg">
               Tap to reattach photo
@@ -270,7 +287,7 @@ export default function PostFields({
           </label>
         ) : !lassoActive ? (
           <>
-            <img src={card.photoPreviewUrl} alt="preview" className="w-full h-full object-cover" />
+            <img src={card.photoPreviewUrl} alt="preview" className="w-full h-full object-contain" />
             <div
               className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5"
               style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }}

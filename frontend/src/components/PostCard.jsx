@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { clampAspectRatio } from '../lib/imageAspect'
 
 function timeAgo(iso) {
   const seconds = Math.max(0, (Date.now() - new Date(iso)) / 1000)
@@ -39,6 +40,7 @@ export default function PostCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [photoRatio, setPhotoRatio] = useState(1)
   const [reactingEmoji, setReactingEmoji] = useState(null)
   const [reactorsOpen, setReactorsOpen] = useState(false)
   const [pickedReactorEmoji, setPickedReactorEmoji] = useState(null)
@@ -166,7 +168,9 @@ export default function PostCard({
         src={`${api.baseUrl}/media/${post.photo_path}`}
         alt=""
         loading="lazy"
-        className="w-full mt-3 aspect-square object-cover bg-stone-100 dark:bg-stone-800"
+        onLoad={(e) => setPhotoRatio(clampAspectRatio(e.target.naturalWidth, e.target.naturalHeight))}
+        style={{ aspectRatio: photoRatio }}
+        className="w-full mt-3 object-contain bg-stone-100 dark:bg-stone-800"
       />
 
       {/* Meta */}

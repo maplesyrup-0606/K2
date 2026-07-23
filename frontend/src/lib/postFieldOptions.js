@@ -11,6 +11,13 @@ export const HOLD_COLORS = [
   { hex: '#6B7280', name: 'Gray' },
 ]
 
+// Single source of truth for grade value bounds — must stay in sync with
+// GRADE_RANGES in backend/app.py, which independently validates the same bounds.
+export const GRADE_RANGES = {
+  v: { min: 0, max: 12 },
+  comp: { min: 1, max: 4 },
+}
+
 export const OUTCOMES = [
   ['sent', 'Sent'],
   ['projecting', 'Project-ing'],

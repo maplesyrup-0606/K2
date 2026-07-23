@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import GymPickerSheet from '../components/GymPickerSheet'
 import PostFields from '../components/PostFields'
-import { HOLD_COLORS, OUTCOMES, ATTEMPTS } from '../lib/postFieldOptions'
+import { HOLD_COLORS, OUTCOMES, ATTEMPTS, GRADE_RANGES } from '../lib/postFieldOptions'
 import { loadDraft, saveDraftDebounced, clearDraft } from '../lib/draftStorage'
+import { clampAspectRatio } from '../lib/imageAspect'
 
 const MAX_CARDS = 12
 
@@ -22,6 +23,7 @@ function makeEmptyCard(gymId = '') {
     photoFile: null,
     photoPreviewUrl: null,
     photoThumbDataUrl: null,
+    photoAspectRatio: 1,
     needsPhotoReattach: false,
     error: null,
   }
@@ -49,6 +51,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
   const [editGymOpen, setEditGymOpen] = useState(false)
   const [editError, setEditError] = useState(null)
   const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editPhotoRatio, setEditPhotoRatio] = useState(1)
 
   // ── Create-mode state (one or more independent cards, swipeable) ───────────
   const [cards, setCards] = useState(() => {
@@ -338,11 +341,15 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
         {isEdit ? (
           <>
-            <div className="aspect-square w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden relative border border-stone-200 dark:border-stone-800">
+            <div
+              className="w-full bg-stone-100 dark:bg-stone-800 rounded-xl overflow-hidden relative border border-stone-200 dark:border-stone-800"
+              style={{ aspectRatio: editPhotoRatio }}
+            >
               <img
                 src={`${api.baseUrl}/media/${post.photo_path}`}
                 alt=""
-                className="w-full h-full object-cover"
+                onLoad={(e) => setEditPhotoRatio(clampAspectRatio(e.target.naturalWidth, e.target.naturalHeight))}
+                className="w-full h-full object-contain"
               />
             </div>
             <div className="text-xs text-stone-400 dark:text-stone-500 mt-1 text-center">
@@ -359,8 +366,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
                     type="button"
                     onClick={() => {
                       setGradeScale(s)
-                      const min = s === 'v' ? 0 : 1
-                      const max = s === 'v' ? 9 : 4
+                      const { min, max } = GRADE_RANGES[s]
                       if (gradeValue < min) setGradeValue(min)
                       if (gradeValue > max) setGradeValue(max)
                     }}
@@ -376,8 +382,8 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
               </div>
               <div className={`mt-2 grid gap-2 ${gradeScale === 'v' ? 'grid-cols-5' : 'grid-cols-4'}`}>
                 {Array.from(
-                  { length: (gradeScale === 'v' ? 12 : 4) - (gradeScale === 'v' ? 0 : 1) + 1 },
-                  (_, i) => (gradeScale === 'v' ? 0 : 1) + i
+                  { length: GRADE_RANGES[gradeScale].max - GRADE_RANGES[gradeScale].min + 1 },
+                  (_, i) => GRADE_RANGES[gradeScale].min + i
                 ).map((n) => (
                   <button
                     key={n}
