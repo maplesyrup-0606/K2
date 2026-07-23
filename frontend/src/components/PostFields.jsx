@@ -130,6 +130,7 @@ export default function PostFields({
 
     const onStart = (e) => {
       e.preventDefault()
+      e.stopPropagation()
       isDrawingRef.current = true
       pointsRef.current = [getCanvasPoint(e, canvas)]
       renderFrame(canvas, imgRef.current, pointsRef.current)
@@ -138,6 +139,7 @@ export default function PostFields({
     const onMove = (e) => {
       if (!isDrawingRef.current) return
       e.preventDefault()
+      e.stopPropagation()
       pointsRef.current.push(getCanvasPoint(e, canvas))
       renderFrame(canvas, imgRef.current, pointsRef.current)
     }
@@ -145,6 +147,7 @@ export default function PostFields({
     const onEnd = (e) => {
       if (!isDrawingRef.current) return
       e.preventDefault()
+      e.stopPropagation()
       isDrawingRef.current = false
       const points = pointsRef.current
       if (points.length < 8) {

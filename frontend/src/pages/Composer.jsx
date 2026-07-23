@@ -7,6 +7,7 @@ import { loadDraft, saveDraftDebounced, clearDraft } from '../lib/draftStorage'
 import { clampAspectRatio } from '../lib/imageAspect'
 
 const MAX_CARDS = 12
+const CARD_GAP = 16
 
 function makeEmptyCard(gymId = '') {
   return {
@@ -72,6 +73,20 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
   const [dragOffset, setDragOffset] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const trackRef = useRef(null)
+  const viewportRef = useRef(null)
+  const [viewportWidth, setViewportWidth] = useState(0)
+
+  // Pixel width of one card slot, measured so the swipe track can position
+  // slides with a real gap between them — CSS % in `transform` resolves
+  // against the track's own box, not per-item, so expressing "one card width
+  // plus a gap" needs the actual pixel width rather than percentages.
+  useEffect(() => {
+    if (isEdit) return
+    const measure = () => setViewportWidth(viewportRef.current?.offsetWidth || 0)
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [isEdit])
 
   // Lock body scroll. Paired with `overscroll-behavior: none` on html/body
   // (index.css) so iOS has nowhere to hand off rubber-band momentum when the
@@ -525,22 +540,23 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
           </>
         ) : (
           <>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden" ref={viewportRef}>
               <div
                 ref={trackRef}
                 className="flex"
                 style={{
-                  transform: `translateX(calc(-${activeIndex * 100}% + ${dragOffset}px))`,
+                  gap: `${CARD_GAP}px`,
+                  transform: `translateX(${-activeIndex * (viewportWidth + CARD_GAP) + dragOffset}px)`,
                   transition: isDragging ? 'none' : 'transform 200ms ease-out',
                   pointerEvents: submitting ? 'none' : 'auto',
                   opacity: submitting ? 0.6 : 1,
                 }}
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
+                onTouchStart={cards.length > 1 ? onTouchStart : undefined}
+                onTouchMove={cards.length > 1 ? onTouchMove : undefined}
+                onTouchEnd={cards.length > 1 ? onTouchEnd : undefined}
               >
                 {cards.map((card) => (
-                  <div key={card.id} className="w-full flex-shrink-0">
+                  <div key={card.id} className="flex-shrink-0" style={{ width: viewportWidth ? `${viewportWidth}px` : '100%' }}>
                     <PostFields
                       card={card}
                       onChange={(patch) => updateCard(card.id, patch)}
