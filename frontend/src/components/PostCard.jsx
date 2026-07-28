@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { clampAspectRatio } from '../lib/imageAspect'
+import ShareStoryModal from './ShareStoryModal'
 
 function timeAgo(iso) {
   const seconds = Math.max(0, (Date.now() - new Date(iso)) / 1000)
@@ -44,6 +45,7 @@ export default function PostCard({
   const [reactingEmoji, setReactingEmoji] = useState(null)
   const [reactorsOpen, setReactorsOpen] = useState(false)
   const [pickedReactorEmoji, setPickedReactorEmoji] = useState(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const isMine = currentUserId === post.user.id
 
   const badge = outcomeBadge(post)
@@ -191,6 +193,19 @@ export default function PostCard({
           <span className="ml-auto text-xs text-stone-500 dark:text-stone-400">
             {post.attempts_bucket} attempts
           </span>
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 transition"
+            aria-label="Share to Instagram"
+            title="Share to Instagram"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+              <path d="M16 6l-4-4-4 4" />
+              <path d="M12 2v13" />
+            </svg>
+          </button>
         </div>
         {post.gym && (
           <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">
@@ -289,6 +304,8 @@ export default function PostCard({
           </div>
         )}
       </div>
+
+      {shareOpen && <ShareStoryModal post={post} onClose={() => setShareOpen(false)} />}
     </article>
   )
 }

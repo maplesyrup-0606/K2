@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 52" fill="none">
-  <!-- Icon -->
-  <rect width="48" height="48" rx="10" fill="#09090b"/>
-  <polygon points="6,44 12,40 15,37 17,33 20,25 22,20 24,15 24,7 28,15 30,20 32,25 35,33 37,37 40,40 42,44" fill="white"/>
-  <!-- Wordmark -->
-  <text x="60" y="35" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif" font-weight="800" font-size="28" fill="#09090b" letter-spacing="-1">K2</text>
-</svg>
