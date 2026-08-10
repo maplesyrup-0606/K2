@@ -25,7 +25,6 @@ export default function PlanCard({
 
   const attendeeCount = plan.attendees.length
   const previewAttendees = plan.attendees.slice(0, 4)
-  const remaining = attendeeCount - previewAttendees.length
 
   async function handleJoin() {
     if (busy) return

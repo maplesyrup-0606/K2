@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import PlanCard from '../components/PlanCard'
@@ -6,6 +6,8 @@ import FabButton from '../components/FabButton'
 import PlanComposer from './PlanComposer'
 import EditPlanModal from './EditPlanModal'
 import { usePullToRefresh } from '../components/PullToRefresh'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 function dayKey(iso) {
   const d = new Date(iso)
@@ -35,17 +37,13 @@ export default function Plans({ currentUser }) {
   const [composerOpen, setComposerOpen] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  const load = useCallback(async () => {
+  const load = useAsyncEffect(async () => {
     setLoading(true)
     const { ok, data } = await api.listPlans()
     setLoading(false)
     if (!ok) return
     setPlans(data.plans)
   }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   const { indicator: pullIndicator } = usePullToRefresh(load)
 
@@ -104,8 +102,8 @@ export default function Plans({ currentUser }) {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -114,8 +112,8 @@ export default function Plans({ currentUser }) {
             ← Feed
           </Link>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {pullIndicator}
         <h1 className="text-2xl font-semibold">Who's going this week</h1>
@@ -175,6 +173,6 @@ export default function Plans({ currentUser }) {
           onUpdated={handlePlanUpdated}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

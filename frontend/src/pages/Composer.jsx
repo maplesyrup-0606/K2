@@ -5,6 +5,9 @@ import PostFields from '../components/PostFields'
 import { HOLD_COLORS, OUTCOMES, ATTEMPTS, GRADE_RANGES } from '../lib/postFieldOptions'
 import { loadDraft, saveDraftDebounced, clearDraft } from '../lib/draftStorage'
 import { clampAspectRatio } from '../lib/imageAspect'
+import Modal from '../components/Modal'
+import Label from '../components/Label'
+import Button from '../components/Button'
 
 const MAX_CARDS = 12
 const CARD_GAP = 16
@@ -302,11 +305,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain shadow-xl"
-      >
+    <Modal as="form" onSubmit={handleSubmit} dvh overscrollContain>
         <div className="flex items-center justify-between mb-4">
           {!isEdit && cards.length > 1 ? (
             <div className="flex items-center gap-2">
@@ -379,7 +378,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Grade scale + value */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">Grade</label>
+              <Label>Grade</Label>
               <div className="mt-2 flex gap-2">
                 {[['v', 'V'], ['comp', 'Comp']].map(([s, label]) => (
                   <button
@@ -424,7 +423,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Hold color */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">Hold color</label>
+              <Label>Hold color</Label>
               <div className="mt-2 flex flex-wrap gap-2.5">
                 {HOLD_COLORS.map(({ hex, name }) => (
                   <button
@@ -441,7 +440,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Outcome */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">Outcome</label>
+              <Label>Outcome</Label>
               <div className="mt-1 grid grid-cols-3 gap-2">
                 {OUTCOMES.map(([v, label]) => (
                   <button
@@ -462,7 +461,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Attempts */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">Attempts</label>
+              <Label>Attempts</Label>
               <div className="mt-1 grid grid-cols-5 gap-2">
                 {ATTEMPTS.map((a) => (
                   <button
@@ -483,9 +482,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Notes */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-                Notes <span className="text-stone-400 dark:text-stone-500">(optional)</span>
-              </label>
+              <Label suffix="(optional)">Notes</Label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -498,7 +495,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {/* Gym */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">Gym</label>
+              <Label>Gym</Label>
               {gyms.length === 0 ? (
                 <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading gyms…</div>
               ) : (
@@ -536,13 +533,9 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
             {editError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{editError}</p>}
 
-            <button
-              type="submit"
-              disabled={editSubmitting}
-              className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" disabled={editSubmitting} className="mt-5 w-full">
               {editSubmitting ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
           </>
         ) : (
           <>
@@ -605,18 +598,13 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" disabled={submitting} className="mt-5 w-full">
               {submitting
                 ? (cards.length > 1 ? `Posting ${Math.min(postedCount + 1, cards.length)} of ${cards.length}…` : 'Posting…')
                 : (cards.length > 1 ? `Post all (${cards.length})` : 'Post')}
-            </button>
+            </Button>
           </>
         )}
-      </form>
-    </div>
+    </Modal>
   )
 }

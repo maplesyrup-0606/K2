@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Composer from './Composer'
@@ -7,6 +7,8 @@ import FabButton from '../components/FabButton'
 import NotificationsBell from '../components/NotificationsBell'
 import ThemeToggle from '../components/ThemeToggle'
 import { usePullToRefresh } from '../components/PullToRefresh'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
@@ -16,7 +18,7 @@ export default function Home({ user, onLogout }) {
   const [nextOffset, setNextOffset] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useAsyncEffect(async () => {
     setLoading(true)
     setError(null)
     const { ok, data } = await api.listPosts(0)
@@ -28,10 +30,6 @@ export default function Home({ user, onLogout }) {
     setPosts(data.posts)
     setNextOffset(data.next_offset)
   }, [])
-
-  useEffect(() => {
-    loadFeed()
-  }, [loadFeed])
 
   const { indicator: pullIndicator } = usePullToRefresh(loadFeed)
 
@@ -63,8 +61,8 @@ export default function Home({ user, onLogout }) {
 
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">K2</h1>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -118,8 +116,8 @@ export default function Home({ user, onLogout }) {
             </button>
           </div>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {pullIndicator}
         {loading && (
@@ -179,6 +177,6 @@ export default function Home({ user, onLogout }) {
           onPosted={handlePosted}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

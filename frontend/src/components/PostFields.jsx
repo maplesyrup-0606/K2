@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { HOLD_COLORS, OUTCOMES, ATTEMPTS, GRADE_RANGES } from '../lib/postFieldOptions'
 import { makeThumbnail } from '../lib/draftStorage'
 import { getImageAspectRatio } from '../lib/imageAspect'
+import Label from './Label'
 
 // ── Canvas helpers (route-highlight lasso tool) ────────────────────────────────
 
@@ -97,6 +98,11 @@ export default function PostFields({
   const originalAspectRatioRef = useRef(card.photoAspectRatio ?? 1)
   const isDrawingRef = useRef(false)
   const pointsRef = useRef([])
+  const onChangeRef = useRef(onChange)
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   const gradeMin = GRADE_RANGES[card.gradeScale].min
   const gradeMax = GRADE_RANGES[card.gradeScale].max
@@ -181,9 +187,9 @@ export default function PostFields({
         const url = URL.createObjectURL(blob)
         setLassoApplied(true)
         setLassoActive(false)
-        onChange({ photoFile: file, photoPreviewUrl: url })
+        onChangeRef.current({ photoFile: file, photoPreviewUrl: url })
         makeThumbnail(file).then((thumb) => {
-          if (thumb) onChange({ photoThumbDataUrl: thumb })
+          if (thumb) onChangeRef.current({ photoThumbDataUrl: thumb })
         })
       }, 'image/jpeg', 0.95)
     }
@@ -355,9 +361,7 @@ export default function PostFields({
 
       {/* Grade scale + value */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Grade
-        </label>
+        <Label>Grade</Label>
         <div className="mt-2 flex gap-2">
           {[['v', 'V'], ['comp', 'Comp']].map(([s, label]) => (
             <button
@@ -394,9 +398,7 @@ export default function PostFields({
 
       {/* Hold color */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Hold color
-        </label>
+        <Label>Hold color</Label>
         <div className="mt-2 flex flex-wrap gap-2.5">
           {HOLD_COLORS.map(({ hex, name }) => (
             <button
@@ -416,9 +418,7 @@ export default function PostFields({
 
       {/* Outcome */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Outcome
-        </label>
+        <Label>Outcome</Label>
         <div className="mt-1 grid grid-cols-3 gap-2">
           {OUTCOMES.map(([v, label]) => (
             <button
@@ -439,10 +439,7 @@ export default function PostFields({
 
       {/* Project linking */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Link to a project?{' '}
-          <span className="text-stone-400 dark:text-stone-500">(optional)</span>
-        </label>
+        <Label suffix="(optional)">Link to a project?</Label>
         <div className="mt-2 space-y-2">
           {loadingProjects && (
             <div className="text-xs text-stone-400 dark:text-stone-500">Loading…</div>
@@ -505,9 +502,7 @@ export default function PostFields({
 
       {/* Attempts */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Attempts
-        </label>
+        <Label>Attempts</Label>
         <div className="mt-1 grid grid-cols-5 gap-2">
           {ATTEMPTS.map((a) => (
             <button
@@ -528,9 +523,7 @@ export default function PostFields({
 
       {/* Notes */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Notes <span className="text-stone-400 dark:text-stone-500">(optional)</span>
-        </label>
+        <Label suffix="(optional)">Notes</Label>
         <textarea
           value={card.notes}
           onChange={(e) => onChange({ notes: e.target.value })}
@@ -543,9 +536,7 @@ export default function PostFields({
 
       {/* Gym */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-          Gym
-        </label>
+        <Label>Gym</Label>
         {gyms.length === 0 ? (
           <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading gyms…</div>
         ) : (

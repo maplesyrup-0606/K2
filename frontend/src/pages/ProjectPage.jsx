@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Link, useParams, useNavigate, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 function statusBadge(project) {
   if (project.is_expired && project.status === 'active') {
@@ -24,7 +26,7 @@ export default function ProjectPage({ currentUser }) {
   const [notFound, setNotFound] = useState(false)
   const [updating, setUpdating] = useState(false)
 
-  const load = useCallback(async () => {
+  useAsyncEffect(async () => {
     setLoading(true)
     const { ok, data } = await api.getProject(id)
     setLoading(false)
@@ -34,10 +36,6 @@ export default function ProjectPage({ currentUser }) {
     }
     setProject(data)
   }, [id])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   async function setStatus(newStatus) {
     setUpdating(true)
@@ -99,8 +97,8 @@ export default function ProjectPage({ currentUser }) {
     : ''
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -109,8 +107,8 @@ export default function ProjectPage({ currentUser }) {
             ← Feed
           </Link>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading ? (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
@@ -237,6 +235,6 @@ export default function ProjectPage({ currentUser }) {
           </>
         ) : null}
       </main>
-    </div>
+    </PageShell>
   )
 }

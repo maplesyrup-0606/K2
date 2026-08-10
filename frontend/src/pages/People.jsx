@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import PageShell from '../components/PageShell'
 
 const DEBOUNCE_MS = 250
 
@@ -30,8 +31,8 @@ export default function People() {
   }, [query])
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -45,8 +46,8 @@ export default function People() {
             className="flex-1 min-w-0 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600"
           />
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-4 pb-24">
         {!query.trim() ? (
           <div className="py-16 text-center text-stone-400 dark:text-stone-500 text-sm">
@@ -85,6 +86,6 @@ export default function People() {
           </ul>
         )}
       </main>
-    </div>
+    </PageShell>
   )
 }

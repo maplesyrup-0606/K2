@@ -1,6 +1,6 @@
 from flask_login import UserMixin
 from datetime import datetime, timezone
-from app import db
+from extensions import db
 
 GRADE_SCALE = db.Enum('v', 'comp', name='grade_scale')
 

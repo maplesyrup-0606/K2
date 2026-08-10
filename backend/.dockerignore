@@ -1,0 +1,10 @@
+.venv
+dev.db
+.env
+*.crt
+*.key
+__pycache__
+*.pyc
+.pytest_cache
+tests
+media

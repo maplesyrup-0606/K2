@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
@@ -6,6 +6,8 @@ import StatsPanel from '../components/StatsPanel'
 import ProjectCard from '../components/ProjectCard'
 import FormField from '../components/FormField'
 import Composer from './Composer'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 const BIO_MAX_LEN = 160
 
@@ -50,7 +52,7 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   const [projectStatus, setProjectStatus] = useState('active')
   const [loadingProjects, setLoadingProjects] = useState(false)
 
-  const load = useCallback(async () => {
+  useAsyncEffect(async () => {
     setLoading(true)
     setNotFound(false)
     const [
@@ -69,10 +71,6 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
     setPosts(postsData.posts)
     setNextOffset(postsData.next_offset)
   }, [username])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   // Fetch projects whenever username or selected status changes
   useEffect(() => {
@@ -193,8 +191,8 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   const isOwnProfile = currentUser && profile && currentUser.id === profile.id
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -206,8 +204,8 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
             ← Feed
           </Link>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading ? (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
@@ -503,6 +501,6 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }

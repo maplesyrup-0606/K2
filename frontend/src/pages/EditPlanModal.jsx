@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import Modal from '../components/Modal'
+import Label from '../components/Label'
+import Button from '../components/Button'
 
 // Today in local YYYY-MM-DD
 function todayLocalDate() {
@@ -74,11 +77,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl"
-      >
+    <Modal as="form" onSubmit={handleSubmit}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Edit plan</h2>
           <button
@@ -92,9 +91,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-            Where
-          </label>
+          <Label>Where</Label>
           {loadingGyms ? (
             <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">Loading gyms…</div>
           ) : (
@@ -148,9 +145,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
 
         <div className="mt-4 flex flex-col gap-3">
           <div>
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-              Date
-            </label>
+            <Label>Date</Label>
             <input
               type="date"
               value={date}
@@ -161,9 +156,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-              Time
-            </label>
+            <Label>Time</Label>
             <input
               type="time"
               value={time}
@@ -175,9 +168,7 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
-            Note <span className="text-stone-400 dark:text-stone-500">(optional)</span>
-          </label>
+          <Label suffix="(optional)">Note</Label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -189,14 +180,9 @@ export default function EditPlanModal({ plan, onClose, onUpdated }) {
 
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <Button type="submit" disabled={submitting} className="mt-5 w-full">
           {submitting ? 'Saving…' : 'Save'}
-        </button>
-      </form>
-    </div>
+        </Button>
+    </Modal>
   )
 }

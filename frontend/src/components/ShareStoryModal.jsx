@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { renderStoryCard } from '../lib/instagramStory'
+import Modal from './Modal'
 
 export default function ShareStoryModal({ post, onClose }) {
   const [status, setStatus] = useState('rendering') // rendering | ready | error
@@ -63,8 +64,7 @@ export default function ShareStoryModal({ post, onClose }) {
   const shareSupported = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-white dark:bg-stone-900 rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-6 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto shadow-xl">
+    <Modal maxWidth="max-w-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
             Share to Instagram
@@ -111,7 +111,6 @@ export default function ShareStoryModal({ post, onClose }) {
             Download instead
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

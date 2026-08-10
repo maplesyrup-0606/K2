@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Link, useParams, useNavigate, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
 import Composer from './Composer'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 export default function PostPage({ currentUser }) {
   const { id } = useParams()
@@ -12,7 +14,7 @@ export default function PostPage({ currentUser }) {
   const [notFound, setNotFound] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  const load = useCallback(async () => {
+  useAsyncEffect(async () => {
     setLoading(true)
     const { ok, data } = await api.getPost(id)
     setLoading(false)
@@ -22,10 +24,6 @@ export default function PostPage({ currentUser }) {
     }
     setPost(data)
   }, [id])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   async function handleDelete(postId) {
     const { ok, data } = await api.deletePost(postId)
@@ -50,8 +48,8 @@ export default function PostPage({ currentUser }) {
   const isMine = post && currentUser && post.user.id === currentUser.id
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -60,8 +58,8 @@ export default function PostPage({ currentUser }) {
             ← Feed
           </Link>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {loading ? (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
@@ -84,6 +82,6 @@ export default function PostPage({ currentUser }) {
           onUpdated={handleUpdated}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

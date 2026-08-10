@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
+import { useAsyncEffect } from '../lib/useAsyncEffect'
+import PageShell from '../components/PageShell'
 
 export default function Admin({ currentUser }) {
   // ─── Invites ──────────────────────────────────────────────────────────────
@@ -10,16 +12,12 @@ export default function Admin({ currentUser }) {
   const [submittingEmail, setSubmittingEmail] = useState(false)
   const [emailError, setEmailError] = useState(null)
 
-  const loadInvites = useCallback(async () => {
+  const loadInvites = useAsyncEffect(async () => {
     setLoadingInvites(true)
     const { ok, data } = await api.listInvites()
     setLoadingInvites(false)
     if (ok) setInvites(data.invites)
   }, [])
-
-  useEffect(() => {
-    loadInvites()
-  }, [loadInvites])
 
   async function handleAddInvite(e) {
     e.preventDefault()
@@ -60,16 +58,12 @@ export default function Admin({ currentUser }) {
   const [editGymCity, setEditGymCity] = useState('')
   const [editGymCountry, setEditGymCountry] = useState('')
 
-  const loadGyms = useCallback(async () => {
+  const loadGyms = useAsyncEffect(async () => {
     setLoadingGyms(true)
     const { ok, data } = await api.listGyms()
     setLoadingGyms(false)
     if (ok) setGyms(data.gyms)
   }, [])
-
-  useEffect(() => {
-    loadGyms()
-  }, [loadGyms])
 
   async function handleAddGym(e) {
     e.preventDefault()
@@ -140,8 +134,8 @@ export default function Admin({ currentUser }) {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <header className="border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10">
+    <PageShell
+      header={
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
             K2
@@ -150,8 +144,8 @@ export default function Admin({ currentUser }) {
             ← Feed
           </Link>
         </div>
-      </header>
-
+      }
+    >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6 space-y-10">
         {/* ─── Invites ─── */}
         <section>
@@ -370,6 +364,6 @@ export default function Admin({ currentUser }) {
           </div>
         </section>
       </main>
-    </div>
+    </PageShell>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
+import Button from '../components/Button'
 
 export default function Onboarding({ user, onComplete }) {
   const [name, setName] = useState(user.display_name || '')
@@ -44,13 +45,9 @@ export default function Onboarding({ user, onComplete }) {
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting || !name.trim()}
-          className="mt-5 w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg px-4 py-2 font-medium hover:bg-stone-700 dark:hover:bg-stone-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <Button type="submit" disabled={submitting || !name.trim()} className="mt-5 w-full">
           {submitting ? 'Saving…' : 'Continue'}
-        </button>
+        </Button>
       </form>
     </div>
   )

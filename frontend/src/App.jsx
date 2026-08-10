@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { api } from './api'
+import { useAsyncEffect } from './lib/useAsyncEffect'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Home from './pages/Home'
@@ -19,7 +20,7 @@ export default function App() {
   // me === <object>: logged in
   const [me, setMe] = useState(undefined)
 
-  const refresh = useCallback(async () => {
+  const refresh = useAsyncEffect(async () => {
     try {
       const { ok, data } = await api.getMe()
       setMe(ok ? data : null)
@@ -27,10 +28,6 @@ export default function App() {
       setMe(null)
     }
   }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
 
   if (me === undefined) {
     return (

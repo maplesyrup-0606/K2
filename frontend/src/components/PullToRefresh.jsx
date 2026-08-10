@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const THRESHOLD = 72
 
@@ -8,7 +8,10 @@ export function usePullToRefresh(onRefresh) {
   const startY = useRef(0)
   const pulling = useRef(false)
   const stableRefresh = useRef(onRefresh)
-  stableRefresh.current = onRefresh
+
+  useEffect(() => {
+    stableRefresh.current = onRefresh
+  }, [onRefresh])
 
   useEffect(() => {
     if (!window.matchMedia('(hover: none) and (pointer: coarse)').matches) return
