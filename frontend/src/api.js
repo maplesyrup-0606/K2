@@ -40,8 +40,8 @@ export const api = {
       method: 'POST',
       body: formData,
     }),
-  listPosts: (offset = 0, limit = 20) =>
-    request(`/api/posts?offset=${offset}&limit=${limit}`),
+  listPosts: (offset = 0, limit = 20, feed = 'all') =>
+    request(`/api/posts?offset=${offset}&limit=${limit}&feed=${feed}`),
   getPost: (id) => request(`/api/posts/${id}`),
   deletePost: (id) =>
     request(`/api/posts/${id}`, { method: 'DELETE' }),

@@ -9,7 +9,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 import app
 from extensions import db
-from models import Post, Project, Gym, Reaction, Notification
+from models import Post, Project, Gym, Reaction, Notification, Follow
 from helpers import (
     GRADE_RANGES,
     VALID_OUTCOMES,
@@ -144,8 +144,17 @@ def list_posts():
     except ValueError:
         return {'error': 'limit/offset must be integers'}, 400
 
+    feed = request.args.get('feed', 'all')
+    if feed not in ('all', 'following'):
+        return {'error': 'invalid feed'}, 400
+
+    query = Post.query
+    if feed == 'following':
+        followed_ids = db.session.query(Follow.followed_id).filter(Follow.follower_id == current_user.id)
+        query = query.filter(db.or_(Post.user_id.in_(followed_ids), Post.user_id == current_user.id))
+
     posts = (
-        Post.query
+        query
         .order_by(Post.climbed_at.desc(), Post.id.desc())
         .limit(limit)
         .offset(offset)

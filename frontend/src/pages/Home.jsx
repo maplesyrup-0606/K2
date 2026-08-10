@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Composer from './Composer'
@@ -12,16 +12,22 @@ import PageShell from '../components/PageShell'
 
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
+  const [feed, setFeed] = useState('all')
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [nextOffset, setNextOffset] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
+  // Guards against a stale response (e.g. a since-abandoned tab switch)
+  // landing after a newer one and clobbering the current view.
+  const requestIdRef = useRef(0)
 
   const loadFeed = useAsyncEffect(async () => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
-    const { ok, data } = await api.listPosts(0)
+    const { ok, data } = await api.listPosts(0, 20, feed)
+    if (requestId !== requestIdRef.current) return
     setLoading(false)
     if (!ok) {
       setError(data?.error || 'Failed to load feed')
@@ -29,15 +35,17 @@ export default function Home({ user, onLogout }) {
     }
     setPosts(data.posts)
     setNextOffset(data.next_offset)
-  }, [])
+  }, [feed])
 
   const { indicator: pullIndicator } = usePullToRefresh(loadFeed)
 
   async function loadMore() {
     if (nextOffset == null || loadingMore) return
+    const requestId = ++requestIdRef.current
     setLoadingMore(true)
-    const { ok, data } = await api.listPosts(nextOffset)
+    const { ok, data } = await api.listPosts(nextOffset, 20, feed)
     setLoadingMore(false)
+    if (requestId !== requestIdRef.current) return
     if (!ok) return
     setPosts((prev) => [...prev, ...data.posts])
     setNextOffset(data.next_offset)
@@ -120,6 +128,27 @@ export default function Home({ user, onLogout }) {
     >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
         {pullIndicator}
+
+        <div className="flex gap-1 mb-4">
+          {[
+            ['all', 'Everyone'],
+            ['following', 'Following'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFeed(key)}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                feed === key
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                  : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {loading && (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         )}
@@ -130,13 +159,25 @@ export default function Home({ user, onLogout }) {
           </div>
         )}
 
-        {!loading && !error && posts.length === 0 && (
+        {!loading && !error && posts.length === 0 && feed === 'all' && (
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-8 text-center">
             <h2 className="text-xl font-semibold">
               Welcome, {user.display_name.split(' ')[0]}.
             </h2>
             <p className="mt-2 text-stone-500 dark:text-stone-400">
               No posts yet — tap the + to log your first climb.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && posts.length === 0 && feed === 'following' && (
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-8 text-center">
+            <h2 className="text-xl font-semibold">Nobody to show yet.</h2>
+            <p className="mt-2 text-stone-500 dark:text-stone-400">
+              Not following anyone yet —{' '}
+              <Link to="/people" className="text-stone-900 dark:text-stone-100 underline">
+                search for climbers to follow
+              </Link>.
             </p>
           </div>
         )}
