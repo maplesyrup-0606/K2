@@ -33,6 +33,12 @@ function messageFor(n) {
   if (n.type === 'plan_invite') {
     return <>invited you to a plan</>
   }
+  if (n.type === 'comment') {
+    return <>commented on your post</>
+  }
+  if (n.type === 'comment_reply') {
+    return <>replied to your comment</>
+  }
   return <>did something</>
 }
 
@@ -71,7 +77,7 @@ export default function NotificationsBell() {
       api.markNotificationsRead([n.id])
     }
     // Navigate to the relevant page
-    if (n.type === 'reaction' && n.post_id) {
+    if ((n.type === 'reaction' || n.type === 'comment' || n.type === 'comment_reply') && n.post_id) {
       navigate(`/posts/${n.post_id}`)
     } else if (n.type === 'plan_join' || n.type === 'plan_invite') {
       navigate('/plans')

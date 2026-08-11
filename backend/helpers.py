@@ -11,7 +11,7 @@ from functools import wraps
 from flask_login import current_user
 
 from extensions import db
-from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink
+from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink, Comment
 
 
 def to_utc(dt):
@@ -120,6 +120,29 @@ def post_payload(post):
         'reaction_counts': reaction_counts,
         'my_reactions': my_reactions,
         'reactors': reactors,
+        'comment_count': Comment.query.filter_by(post_id=post.id).count(),
+    }
+
+
+def _comment_user_payload(user):
+    return {
+        'id': user.id,
+        'username': user.username,
+        'display_name': user.display_name,
+        'avatar_url': user.avatar_url,
+    }
+
+
+def comment_payload(comment):
+    return {
+        'id': comment.id,
+        'post_id': comment.post_id,
+        'parent_id': comment.parent_id,
+        'body': comment.body,
+        'created_at': iso_utc(comment.created_at),
+        'edited_at': iso_utc(comment.edited_at) if comment.edited_at else None,
+        'user': _comment_user_payload(comment.user),
+        'reply_to_user': _comment_user_payload(comment.reply_to_user) if comment.reply_to_user else None,
     }
 
 ATTEMPTS_LOWER = {'1': 1, '2': 2, '3-4': 3, '5-9': 5, '10+': 10}
@@ -287,5 +310,6 @@ def notification_payload(n):
         },
         'post_id': n.post_id,
         'plan_id': n.plan_id,
+        'comment_id': n.comment_id,
         'emoji': n.emoji,
     }

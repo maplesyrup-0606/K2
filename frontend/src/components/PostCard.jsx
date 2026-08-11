@@ -245,6 +245,17 @@ export default function PostCard({
           })}
         </div>
 
+        <div className="mt-2">
+          <Link
+            to={`/posts/${post.id}`}
+            className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition"
+          >
+            {post.comment_count > 0
+              ? `View ${post.comment_count === 1 ? '1 comment' : `all ${post.comment_count} comments`}`
+              : 'Add a comment…'}
+          </Link>
+        </div>
+
         {totalReactions > 0 && (
           <div className="mt-2">
             <button

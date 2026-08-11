@@ -154,6 +154,49 @@ class Reaction(db.Model):
     )
 
 
+class Comment(db.Model):
+    __tablename__ = 'comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(
+        db.Integer,
+        db.ForeignKey('posts.id'),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+        index=True,
+    )
+    # Always points at a top-level comment (never at another reply) — this is
+    # what keeps replies flat at one level deep. See routes_comments.py.
+    parent_id = db.Column(
+        db.Integer,
+        db.ForeignKey('comments.id'),
+        nullable=True,
+        index=True,
+    )
+    # Who to @mention/notify — may differ from parent's author when replying
+    # to a reply (the reply is flattened under parent, but credit still goes
+    # to whoever was actually tapped "reply" on).
+    reply_to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    body = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    edited_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # relations
+    post = db.relationship('Post', backref='comments')
+    user = db.relationship('User', foreign_keys=[user_id])
+    reply_to_user = db.relationship('User', foreign_keys=[reply_to_user_id])
+
+
 class InviteAllowList(db.Model):
     __tablename__ = 'inviteallowlist'
 
@@ -306,11 +349,15 @@ class Notification(db.Model):
         nullable=False,
     )
     type = db.Column(
-        db.Enum('reaction', 'plan_join', 'follow', 'plan_invite', name='notification_type'),
+        db.Enum(
+            'reaction', 'plan_join', 'follow', 'plan_invite', 'comment', 'comment_reply',
+            name='notification_type',
+        ),
         nullable=False,
     )
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
     plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'))
+    comment_id = db.Column(db.Integer, db.ForeignKey('comments.id'))
     emoji = db.Column(db.String(16))
     is_read = db.Column(
         db.Boolean,
@@ -329,6 +376,7 @@ class Notification(db.Model):
     actor = db.relationship('User', foreign_keys=[actor_id])
     post = db.relationship('Post', foreign_keys=[post_id])
     plan = db.relationship('Plan', foreign_keys=[plan_id])
+    comment = db.relationship('Comment', foreign_keys=[comment_id])
 
 
 class SocialLink(db.Model):

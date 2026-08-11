@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams, useNavigate, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
+import CommentThread from '../components/CommentThread'
 import Composer from './Composer'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
@@ -43,6 +44,10 @@ export default function PostPage({ currentUser }) {
     setPost(updatedPost)
   }
 
+  function handleCommentCountChange(delta) {
+    setPost((prev) => (prev ? { ...prev, comment_count: prev.comment_count + delta } : prev))
+  }
+
   if (notFound) return <Navigate to="/" replace />
 
   const isMine = post && currentUser && post.user.id === currentUser.id
@@ -64,14 +69,21 @@ export default function PostPage({ currentUser }) {
         {loading ? (
           <div className="text-center text-stone-400 dark:text-stone-500 py-12">Loading…</div>
         ) : post ? (
-          <PostCard
-            post={post}
-            currentUserId={currentUser?.id}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-            onReactionChange={handleUpdated}
-            showActions={isMine}
-          />
+          <>
+            <PostCard
+              post={post}
+              currentUserId={currentUser?.id}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onReactionChange={handleUpdated}
+              showActions={isMine}
+            />
+            <CommentThread
+              postId={post.id}
+              currentUserId={currentUser?.id}
+              onCommentCountChange={handleCommentCountChange}
+            />
+          </>
         ) : null}
       </main>
 

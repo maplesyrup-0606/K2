@@ -59,6 +59,19 @@ export const api = {
     request(`/api/posts/${postId}/reactions/${encodeURIComponent(emoji)}`, {
       method: 'DELETE',
     }),
+  listComments: (postId) => request(`/api/posts/${postId}/comments`),
+  addComment: (postId, body, replyToCommentId = null) =>
+    request(`/api/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body, reply_to_comment_id: replyToCommentId }),
+    }),
+  updateComment: (commentId, body) =>
+    request(`/api/comments/${commentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ body }),
+    }),
+  deleteComment: (commentId) =>
+    request(`/api/comments/${commentId}`, { method: 'DELETE' }),
   searchUsers: (q) =>
     request(`/api/users?q=${encodeURIComponent(q)}`),
   getUserProfile: (username) =>
