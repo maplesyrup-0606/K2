@@ -23,8 +23,42 @@ async function request(path, options = {}) {
 export const api = {
   baseUrl: BASE_URL,
   loginUrl: `${BASE_URL}/api/auth/google/login`,
+  appleLoginUrl: `${BASE_URL}/api/auth/apple/login`,
+  // Hides the Apple button until a real Apple Developer integration is
+  // configured server-side — set VITE_APPLE_ENABLED=true once ready.
+  appleEnabled: import.meta.env.VITE_APPLE_ENABLED === 'true',
   getMe: () => request('/api/auth/me'),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
+  signup: (email, password, displayName) =>
+    request('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, display_name: displayName }),
+    }),
+  login: (email, password) =>
+    request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  verifyEmail: (token) =>
+    request('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+  resendVerification: (email) =>
+    request('/api/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  forgotPassword: (email) =>
+    request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token, newPassword) =>
+    request('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
   updateMe: (body) =>
     request('/api/users/me', {
       method: 'PATCH',
@@ -130,16 +164,6 @@ export const api = {
     }),
   deletePlan: (planId) =>
     request(`/api/plans/${planId}`, { method: 'DELETE' }),
-  listInvites: () => request('/api/admin/invites'),
-  addInvite: (email) =>
-    request('/api/admin/invites', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-  removeInvite: (email) =>
-    request(`/api/admin/invites/${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-    }),
   listNotifications: () => request('/api/notifications'),
   markNotificationsRead: (ids) =>
     request('/api/notifications/read', {

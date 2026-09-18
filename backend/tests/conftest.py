@@ -11,8 +11,10 @@ os.environ.setdefault('GMAIL_APP_PASSWORD', '')
 _db_fd, _db_path = tempfile.mkstemp(suffix='.db')
 os.environ['K2_DATABASE_URI'] = f'sqlite:///{_db_path}'
 
+from werkzeug.security import generate_password_hash
+
 from app import app as flask_app, db as _db
-from models import User, Post, Gym, Plan, PlanAttendee, Reaction, Notification, InviteAllowList
+from models import User, Post, Gym, Plan, PlanAttendee, Reaction, Notification
 
 
 @pytest.fixture(scope='session')
@@ -21,6 +23,10 @@ def app():
         'TESTING': True,
         'WTF_CSRF_ENABLED': False,
         'SESSION_COOKIE_SECURE': False,
+        # `app` is session-scoped, so the in-memory limiter is shared across
+        # the whole test session — without this, hitting an endpoint's limit
+        # in one test would start causing 429s in unrelated later tests.
+        'RATELIMIT_ENABLED': False,
     })
     with flask_app.app_context():
         # Hard guard: never run tests against the real database.
@@ -49,14 +55,17 @@ def client(app):
     return app.test_client()
 
 
-def make_user(db, username='alice', email='alice@example.com', is_admin=False):
+def make_user(db, username='alice', email='alice@example.com', is_admin=False,
+              password=None, google_sub=None, email_verified=True):
     u = User(
-        google_sub=f'sub_{username}',
+        google_sub=google_sub if google_sub is not None else (None if password else f'sub_{username}'),
         email=email,
         username=username,
         display_name=username.capitalize(),
         is_onboarded=True,
         is_admin=is_admin,
+        password_hash=generate_password_hash(password) if password else None,
+        email_verified=email_verified,
     )
     db.session.add(u)
     db.session.commit()

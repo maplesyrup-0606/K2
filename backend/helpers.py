@@ -8,7 +8,9 @@ from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 from functools import wraps
 
+from flask import current_app
 from flask_login import current_user
+from itsdangerous import URLSafeTimedSerializer
 
 from extensions import db
 from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink, Comment
@@ -48,6 +50,34 @@ def generate_unique_username():
         candidate = f"user_{secrets.token_hex(4)}"
         if User.query.filter_by(username=candidate).first() is None:
             return candidate
+
+
+EMAIL_VERIFY_MAX_AGE = 60 * 60 * 24 * 3  # 3 days
+PASSWORD_RESET_MAX_AGE = 60 * 60  # 1 hour
+
+
+def _token_serializer(salt):
+    # Distinct salt per token purpose so a leaked verification-link token
+    # can never be replayed as a password-reset token, or vice versa.
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=salt)
+
+
+def make_email_verify_token(user):
+    return _token_serializer('email-verify').dumps({'uid': user.id, 'email': user.email})
+
+
+def read_email_verify_token(token):
+    """Returns {'uid', 'email'}; raises BadSignature/SignatureExpired on failure."""
+    return _token_serializer('email-verify').loads(token, max_age=EMAIL_VERIFY_MAX_AGE)
+
+
+def make_password_reset_token(user):
+    return _token_serializer('pwd-reset').dumps({'uid': user.id, 'email': user.email})
+
+
+def read_password_reset_token(token):
+    """Returns {'uid', 'email'}; raises BadSignature/SignatureExpired on failure."""
+    return _token_serializer('pwd-reset').loads(token, max_age=PASSWORD_RESET_MAX_AGE)
 
 
 def _instagram_handle(user):

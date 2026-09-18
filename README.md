@@ -220,12 +220,15 @@ The SQLite database and uploaded media are mounted as volumes and survive rebuil
 
 | Variable | Description |
 |---|---|
-| `GOOGLE_CLIENT_ID` | OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
-| `FLASK_SECRET_KEY` | Random secret for session signing |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `APPLE_CLIENT_ID` | Apple Services ID (Sign in with Apple) — optional, button hides on the frontend if unset |
+| `APPLE_CLIENT_SECRET` | ES256 JWT client secret for Apple — generate via `backend/scripts/generate_apple_client_secret.py`, expires ~6 months, re-run manually to rotate |
+| `APPLE_OAUTH_REDIRECT_URI` | Apple OAuth callback URL |
+| `FLASK_SECRET_KEY` | Random secret for session signing, and for signing email-verification/password-reset tokens |
 | `FRONTEND_URL` | Public frontend URL |
 | `OAUTH_REDIRECT_URI` | Google OAuth callback URL |
-| `GMAIL_APP_PASSWORD` | Gmail App Password for sending invite emails |
+| `GMAIL_APP_PASSWORD` | Gmail App Password for sending verification/password-reset/invite emails |
 
 ---
 

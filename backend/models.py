@@ -14,12 +14,27 @@ class User(db.Model, UserMixin):
     )
     
     google_sub = db.Column(
-        db.String(255), 
-        unique=True, 
-        nullable=False, 
+        db.String(255),
+        unique=True,
+        nullable=True,
         index=True
     )
-    
+
+    apple_sub = db.Column(
+        db.String(255),
+        unique=True,
+        nullable=True,
+        index=True
+    )
+
+    password_hash = db.Column(db.String(255), nullable=True)
+
+    email_verified = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+
     email = db.Column(
         db.String(255), 
         unique=True, 
@@ -196,17 +211,6 @@ class Comment(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     reply_to_user = db.relationship('User', foreign_keys=[reply_to_user_id])
 
-
-class InviteAllowList(db.Model):
-    __tablename__ = 'inviteallowlist'
-
-    email = db.Column(db.String(255), primary_key=True)
-    invited_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-    )
 
 class Gym(db.Model):
     __tablename__ = 'gyms'
