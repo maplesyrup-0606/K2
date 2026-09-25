@@ -383,6 +383,32 @@ class Notification(db.Model):
     comment = db.relationship('Comment', foreign_keys=[comment_id])
 
 
+class EmailInvite(db.Model):
+    """One row per "invite a friend" email sent. Doubles as the audit trail
+    and the source for the per-user daily cap / per-recipient dedupe in
+    routes_invites.py — there's no token: registration is open, so the email
+    is just a personal nudge with a link to the app."""
+    __tablename__ = 'email_invites'
+
+    id = db.Column(db.Integer, primary_key=True)
+    inviter_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+        index=True,
+    )
+    email = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    # relations
+    inviter = db.relationship('User')
+
+
 class SocialLink(db.Model):
     __tablename__ = 'social_links'
 

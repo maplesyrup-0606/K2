@@ -9,7 +9,9 @@ entire app for every user, bounded to ~10s by the timeout below. Known,
 accepted tradeoff for now; see memory project_auth_overhaul_followups."""
 import os
 import smtplib
+import threading
 from email.mime.text import MIMEText
+from html import escape
 
 GMAIL_FROM = os.getenv('GMAIL_FROM', 'mercurymcindoe@gmail.com')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
@@ -33,6 +35,13 @@ def send_email(to_email, subject, html):
         print(f'[email] "{subject}" sent to {to_email}')
     except Exception as e:
         print(f'[email] failed to send to {to_email}: {e}')
+
+
+def run_in_background(func, *args):
+    """Fire-and-forget so a slow SMTP round-trip never holds the single
+    gunicorn worker. send_email() already swallows its own errors, so there's
+    nothing to propagate. Tests patch this to run inline."""
+    threading.Thread(target=func, args=args, daemon=True).start()
 
 
 def _branded(body_html):
@@ -71,6 +80,19 @@ def send_welcome_email(to_email):
       {_install_guide_block()}
     """
     send_email(to_email, "Welcome to K2", _branded(body))
+
+
+def send_invite_email(to_email, inviter_name):
+    # inviter_name is user-controlled: collapse whitespace (blocks header
+    # injection via the Subject line) and HTML-escape it for the body.
+    name = ' '.join(inviter_name.split()) or 'A friend'
+    body = f"""
+      <p style="margin:0 0 32px;"><strong>{escape(name)}</strong> invited you to K2 — a climbing log for friends. Log your sends, follow each other's progress, and plan sessions together.</p>
+      <a href="{FRONTEND_URL}" style="display:inline-block;background:#863bff;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">Join K2 &rarr;</a>
+      <p style="margin:32px 0 0;color:#78716c;font-size:13px;">Don't know {escape(name)}? You can safely ignore this email — nothing happens unless you sign up.</p>
+      {_install_guide_block()}
+    """
+    send_email(to_email, f"{name} invited you to K2", _branded(body))
 
 
 def send_password_reset_email(to_email, token):

@@ -2,13 +2,34 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import PageShell from '../components/PageShell'
+import Button from '../components/Button'
+import InviteModal from '../components/InviteModal'
 
 const DEBOUNCE_MS = 250
+
+function InviteCard({ onInvite }) {
+  return (
+    <div className="mt-6 bg-violet-50 dark:bg-violet-950 border border-violet-200 dark:border-violet-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+      <div>
+        <div className="text-sm font-medium text-violet-900 dark:text-violet-100">
+          Friends not on K2 yet?
+        </div>
+        <div className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
+          Invite them by email.
+        </div>
+      </div>
+      <Button type="button" onClick={onInvite} className="shrink-0 text-sm">
+        Invite
+      </Button>
+    </div>
+  )
+}
 
 export default function People() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searched, setSearched] = useState(false)
+  const [inviting, setInviting] = useState(false)
   // Guards against stale responses arriving out of order
   const requestIdRef = useRef(0)
 
@@ -85,7 +106,15 @@ export default function People() {
             ))}
           </ul>
         )}
+
+        {/* Offered when there's nobody to show: nothing typed yet, or the
+            search came up empty — i.e. exactly when a friend isn't on K2. */}
+        {(!query.trim() || (results.length === 0 && searched)) && (
+          <InviteCard onInvite={() => setInviting(true)} />
+        )}
       </main>
+
+      {inviting && <InviteModal onClose={() => setInviting(false)} />}
     </PageShell>
   )
 }

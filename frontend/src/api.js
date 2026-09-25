@@ -108,6 +108,11 @@ export const api = {
     request(`/api/comments/${commentId}`, { method: 'DELETE' }),
   searchUsers: (q) =>
     request(`/api/users?q=${encodeURIComponent(q)}`),
+  inviteByEmail: (email) =>
+    request('/api/invites', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
   getUserProfile: (username) =>
     request(`/api/users/${username}`),
   followUser: (username) =>
@@ -147,6 +152,12 @@ export const api = {
     }),
   removeGym: (id) =>
     request(`/api/admin/gyms/${id}`, { method: 'DELETE' }),
+  listAdmins: () => request('/api/admin/admins'),
+  addAdmin: (identifier) =>
+    request('/api/admin/admins', {
+      method: 'POST',
+      body: JSON.stringify({ identifier }),
+    }),
   listPlans: () => request('/api/plans'),
   createPlan: (body) =>
     request('/api/plans', {

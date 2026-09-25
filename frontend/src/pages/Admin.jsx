@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
+import AdminManager from '../components/AdminManager'
 
 export default function Admin({ currentUser }) {
   // ─── Gyms ─────────────────────────────────────────────────────────────────
@@ -254,6 +255,9 @@ export default function Admin({ currentUser }) {
             )}
           </div>
         </section>
+
+        {/* ─── Admins ─── */}
+        <AdminManager currentUser={currentUser} />
       </main>
     </PageShell>
   )
