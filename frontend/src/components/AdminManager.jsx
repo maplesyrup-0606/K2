@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import FormField from './FormField'
 import Button from './Button'
+import Avatar from './Avatar'
 
 export default function AdminManager({ currentUser }) {
   const [admins, setAdmins] = useState([])
@@ -101,13 +102,7 @@ export default function AdminManager({ currentUser }) {
           <ul className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl divide-y divide-stone-200 dark:divide-stone-800">
             {admins.map((admin) => (
               <li key={admin.id} className="flex items-center gap-3 px-4 py-3">
-                {admin.avatar_url ? (
-                  <img src={admin.avatar_url} alt="" className="w-10 h-10 rounded-full shrink-0" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full shrink-0 bg-stone-200 dark:bg-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 font-medium">
-                    {admin.display_name?.[0]?.toUpperCase() || '?'}
-                  </div>
-                )}
+                <Avatar user={admin} />
                 <div className="flex flex-col leading-tight min-w-0">
                   <span className="text-sm font-medium text-stone-800 dark:text-stone-200 truncate">
                     {admin.display_name}

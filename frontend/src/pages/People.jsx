@@ -4,6 +4,7 @@ import { api } from '../api'
 import PageShell from '../components/PageShell'
 import Button from '../components/Button'
 import InviteModal from '../components/InviteModal'
+import Avatar from '../components/Avatar'
 
 const DEBOUNCE_MS = 250
 
@@ -86,13 +87,7 @@ export default function People() {
                   to={`/u/${u.username}`}
                   className="flex items-center gap-3 py-3 hover:opacity-70 transition"
                 >
-                  {u.avatar_url ? (
-                    <img src={u.avatar_url} alt="" className="w-10 h-10 rounded-full shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full shrink-0 bg-stone-200 dark:bg-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 font-medium">
-                      {u.display_name?.[0]?.toUpperCase() || '?'}
-                    </div>
-                  )}
+                  <Avatar user={u} />
                   <div className="flex flex-col leading-tight">
                     <span className="text-sm font-medium text-stone-800 dark:text-stone-200">
                       {u.display_name}

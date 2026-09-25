@@ -8,6 +8,7 @@ import FormField from '../components/FormField'
 import Composer from './Composer'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
+import FollowListModal from '../components/FollowListModal'
 
 const BIO_MAX_LEN = 160
 
@@ -146,6 +147,8 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   }
 
   const [followBusy, setFollowBusy] = useState(false)
+  // 'followers' | 'following' | null — which list sheet is open
+  const [followList, setFollowList] = useState(null)
 
   async function toggleFollow() {
     if (followBusy || !profile) return
@@ -257,12 +260,24 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
                 <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
                   Joined {new Date(profile.created_at).toLocaleDateString()}
                 </div>
-                <div className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                  <span className="font-medium text-stone-700 dark:text-stone-300">{profile.follower_count}</span>{' '}
-                  {profile.follower_count === 1 ? 'follower' : 'followers'}
-                  {' · '}
-                  <span className="font-medium text-stone-700 dark:text-stone-300">{profile.following_count}</span>{' '}
-                  following
+                <div className="text-xs text-stone-500 dark:text-stone-400 mt-1 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFollowList('followers')}
+                    className="hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition py-1"
+                  >
+                    <span className="font-medium text-stone-700 dark:text-stone-300">{profile.follower_count}</span>{' '}
+                    {profile.follower_count === 1 ? 'follower' : 'followers'}
+                  </button>
+                  <span aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setFollowList('following')}
+                    className="hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition py-1"
+                  >
+                    <span className="font-medium text-stone-700 dark:text-stone-300">{profile.following_count}</span>{' '}
+                    following
+                  </button>
                 </div>
               </div>
               {isOwnProfile ? (
@@ -500,6 +515,15 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
             </div>
           </div>
         </div>
+      )}
+
+      {followList && profile && (
+        <FollowListModal
+          key={`${profile.username}-${followList}`}
+          username={profile.username}
+          kind={followList}
+          onClose={() => setFollowList(null)}
+        />
       )}
     </PageShell>
   )

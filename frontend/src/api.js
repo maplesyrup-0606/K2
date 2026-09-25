@@ -120,6 +120,10 @@ export const api = {
   unfollowUser: (username) =>
     request(`/api/users/${username}/follow`, { method: 'DELETE' }),
   listFollowing: () => request('/api/users/me/following'),
+  listFollowers: (username, offset = 0, limit = 50) =>
+    request(`/api/users/${username}/followers?offset=${offset}&limit=${limit}`),
+  listUserFollowing: (username, offset = 0, limit = 50) =>
+    request(`/api/users/${username}/following?offset=${offset}&limit=${limit}`),
   listUserPosts: (username, offset = 0, limit = 20) =>
     request(`/api/users/${username}/posts?offset=${offset}&limit=${limit}`),
   getUserStats: (username, window = '30d') =>

@@ -29,6 +29,7 @@ users_bp = Blueprint('users', __name__)
 
 USERNAME_RE = re.compile(r'^[a-z0-9_]{3,30}$')
 BIO_MAX_LEN = 160
+FOLLOW_LIST_MAX_LIMIT = 50
 INSTAGRAM_HANDLE_RE = re.compile(r'^[a-zA-Z0-9_.]{1,30}$')
 
 
@@ -180,6 +181,61 @@ def list_following():
             for u in followees
         ]
     }
+
+
+def _follow_list_response(username, listing_followers):
+    """One page of the people who follow `username` (listing_followers) or
+    whom `username` follows, newest follow first. Deliberately exposes only
+    the public card fields — never email."""
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        return {'error': 'user not found'}, 404
+
+    try:
+        limit = min(max(int(request.args.get('limit', 20)), 1), FOLLOW_LIST_MAX_LIMIT)
+        offset = max(int(request.args.get('offset', 0)), 0)
+    except ValueError:
+        return {'error': 'limit/offset must be integers'}, 400
+
+    if listing_followers:
+        join_on, filter_on = Follow.follower_id == User.id, Follow.followed_id == user.id
+    else:
+        join_on, filter_on = Follow.followed_id == User.id, Follow.follower_id == user.id
+
+    # One extra row tells us whether another page exists without a count query.
+    rows = (
+        db.session.query(User)
+        .join(Follow, join_on)
+        .filter(filter_on)
+        .order_by(Follow.created_at.desc(), User.id.desc())
+        .offset(offset)
+        .limit(limit + 1)
+        .all()
+    )
+    return {
+        'users': [
+            {
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name,
+                'avatar_url': u.avatar_url,
+            }
+            for u in rows[:limit]
+        ],
+        'next_offset': offset + limit if len(rows) > limit else None,
+    }
+
+
+@users_bp.route('/api/users/<username>/followers', methods=['GET'])
+@login_required
+def list_followers(username):
+    return _follow_list_response(username, listing_followers=True)
+
+
+@users_bp.route('/api/users/<username>/following', methods=['GET'])
+@login_required
+def list_user_following(username):
+    return _follow_list_response(username, listing_followers=False)
 
 
 @users_bp.route('/api/users/<username>/follow', methods=['DELETE'])
