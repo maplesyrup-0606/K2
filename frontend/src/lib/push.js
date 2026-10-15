@@ -33,10 +33,18 @@ export async function getPushSubscriptionState() {
 
 // Swallows every failure (unsupported, permission denied, network) — a
 // user who hasn't installed the PWA or declines the permission prompt
-// should just silently stay unsubscribed, not see an error.
+// should just silently stay unsubscribed, not see an error. Still logs to
+// the console so a real bug doesn't disappear without a trace.
 export async function subscribeToPush() {
   if (!isPushSupported()) return false
   try {
+    // Must be the first awaited call after the click, with nothing before
+    // it — Safari/WebKit treats the permission prompt as tied to the
+    // original user gesture and silently fails pushManager.subscribe() if
+    // an earlier await (e.g. a network round-trip) already spent it.
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return false
+
     const { ok, data } = await api.pushPublicKey()
     if (!ok || !data.public_key) return false
 
@@ -52,7 +60,8 @@ export async function subscribeToPush() {
       keys: json.keys,
     })
     return res.ok
-  } catch {
+  } catch (err) {
+    console.error('[push] subscribe failed:', err)
     return false
   }
 }
@@ -68,7 +77,8 @@ export async function unsubscribeFromPush() {
     await subscription.unsubscribe()
     await api.unsubscribePush(endpoint)
     return true
-  } catch {
+  } catch (err) {
+    console.error('[push] unsubscribe failed:', err)
     return false
   }
 }
