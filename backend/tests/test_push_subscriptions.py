@@ -215,6 +215,28 @@ def test_self_reaction_does_not_push(client, db, inline_push, monkeypatch):
     assert pushes == []
 
 
+def test_follow_triggers_push(client, db, inline_push, monkeypatch):
+    import routes_users
+
+    alice = make_user(db, username='alice', email='alice@example.com')
+    bob = make_user(db, username='bob', email='bob@example.com')
+
+    pushes = []
+    monkeypatch.setattr(routes_users, 'send_push', lambda *a, **k: pushes.append((a, k)))
+
+    login(client, alice)
+    res = client.post('/api/users/bob/follow')
+    assert res.status_code == 200
+    assert len(pushes) == 1
+    args, kwargs = pushes[0]
+    assert args[0] == bob.id
+    assert kwargs['url'] == '/u/alice'
+
+    # Already-following re-POST is a no-op — shouldn't push again.
+    client.post('/api/users/bob/follow')
+    assert len(pushes) == 1
+
+
 def test_plan_invite_triggers_push(client, db, inline_push, monkeypatch):
     import routes_plans
     from datetime import datetime, timedelta, timezone

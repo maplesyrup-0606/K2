@@ -23,6 +23,7 @@ from helpers import (
     _fuzzy_subsequence,
     normalize_instagram_handle,
     prune_notifications,
+    send_push,
 )
 
 users_bp = Blueprint('users', __name__)
@@ -157,6 +158,12 @@ def follow_user(username):
         ))
         db.session.commit()
         prune_notifications(user.id)
+        send_push(
+            user.id,
+            title='New follower',
+            body=f'{current_user.display_name} started following you',
+            url=f'/u/{current_user.username}',
+        )
     return _follow_state(user)
 
 
