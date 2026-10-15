@@ -82,10 +82,13 @@ export default function Home({ user, onLogout }) {
             </Link>
             <Link
               to="/people"
-              className="text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-lg leading-none p-1"
+              className="inline-flex items-center justify-center w-9 h-9 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
               aria-label="Search climbers"
             >
-              🔍
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
             </Link>
             <NotificationsBell />
             <ThemeToggle />
