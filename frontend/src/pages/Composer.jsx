@@ -116,14 +116,25 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
       const list = ok ? data.gyms : []
       setGyms(list)
       if (list.length === 0) return
+      const defaultGym = list.find((g) => g.is_favorite) ?? list[0]
       if (isEdit) {
-        setEditGymId((prev) => prev || String(list[0].id))
+        setEditGymId((prev) => prev || String(defaultGym.id))
       } else {
-        setCards((prev) => prev.map((c) => (c.gymId ? c : { ...c, gymId: String(list[0].id) })))
+        setCards((prev) => prev.map((c) => (c.gymId ? c : { ...c, gymId: String(defaultGym.id) })))
       }
     })
     return () => { cancelled = true }
   }, [isEdit])
+
+  function toggleFavoriteGym(gym) {
+    const nextFavorite = !gym.is_favorite
+    setGyms((prev) => prev.map((g) => (g.id === gym.id ? { ...g, is_favorite: nextFavorite } : g)))
+    const call = nextFavorite ? api.favoriteGym : api.unfavoriteGym
+    call(gym.id).then(({ ok }) => {
+      if (ok) return
+      setGyms((prev) => prev.map((g) => (g.id === gym.id ? { ...g, is_favorite: gym.is_favorite } : g)))
+    })
+  }
 
   useEffect(() => {
     if (isEdit || !user?.username) return
@@ -529,6 +540,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
               onSelect={setEditGymId}
               open={editGymOpen}
               onClose={() => setEditGymOpen(false)}
+              onToggleFavorite={toggleFavoriteGym}
             />
 
             {editError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{editError}</p>}
@@ -575,6 +587,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
               onSelect={(id) => gymOpenCardId && updateCard(gymOpenCardId, { gymId: id })}
               open={gymOpenCardId != null}
               onClose={() => setGymOpenCardId(null)}
+              onToggleFavorite={toggleFavoriteGym}
             />
 
             <div className="mt-4 flex items-center justify-between text-sm">

@@ -144,6 +144,8 @@ export const api = {
   deleteProject: (id) =>
     request(`/api/projects/${id}`, { method: 'DELETE' }),
   listGyms: () => request('/api/gyms'),
+  favoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'POST' }),
+  unfavoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'DELETE' }),
   addGym: ({ name, city, country }) =>
     request('/api/admin/gyms', {
       method: 'POST',

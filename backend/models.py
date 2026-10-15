@@ -229,6 +229,31 @@ class Gym(db.Model):
         return f'<Gym {self.name}>'
 
 
+class FavoriteGym(db.Model):
+    __tablename__ = 'favorite_gyms'
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        primary_key=True,
+    )
+    gym_id = db.Column(
+        db.Integer,
+        db.ForeignKey('gyms.id'),
+        primary_key=True,
+        index=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    user = db.relationship('User')
+    gym = db.relationship('Gym')
+
+
 class Plan(db.Model):
     __tablename__ = 'plans'
 

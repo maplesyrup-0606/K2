@@ -263,13 +263,14 @@ def sync_project_status(project, outcome):
         project.closed_at = datetime.now(timezone.utc)
 
 
-def gym_payload(gym):
+def gym_payload(gym, is_favorite=False):
     return {
         'id': gym.id,
         'name': gym.name,
         'city': gym.city,
         'country': gym.country,
-        'created_at': iso_utc(gym.created_at)
+        'created_at': iso_utc(gym.created_at),
+        'is_favorite': is_favorite,
     }
 
 
