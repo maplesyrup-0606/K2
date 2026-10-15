@@ -15,6 +15,7 @@ import Install from './pages/Install'
 import VerifyEmail from './pages/VerifyEmail'
 import ResetPassword from './pages/ResetPassword'
 import BottomNav from './components/BottomNav'
+import EnableNotificationsPrompt from './components/EnableNotificationsPrompt'
 
 export default function App() {
   // me === undefined: still loading
@@ -149,6 +150,7 @@ export default function App() {
       </Routes>
 
       {me && me.is_onboarded && <BottomNav currentUser={me} />}
+      {me && me.is_onboarded && <EnableNotificationsPrompt />}
       {import.meta.env.DEV && (
         <div className="fixed top-0 inset-x-0 z-[9999] h-1.5 bg-amber-400 pointer-events-none" />
       )}
