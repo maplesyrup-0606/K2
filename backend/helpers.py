@@ -1,6 +1,7 @@
 """Cross-domain helpers shared by two or more blueprint modules: payload
 serializers, small pure-logic functions, and the module constants they rely
 on. Moved verbatim out of app.py — no behavior changes."""
+import json
 import os
 import re
 import secrets
@@ -11,9 +12,11 @@ from functools import wraps
 from flask import current_app
 from flask_login import current_user
 from itsdangerous import URLSafeTimedSerializer
+from pywebpush import webpush, WebPushException
 
+from emailer import run_in_background
 from extensions import db
-from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink, Comment
+from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink, Comment, PushSubscription
 
 
 def to_utc(dt):
@@ -344,3 +347,53 @@ def notification_payload(n):
         'comment_id': n.comment_id,
         'emoji': n.emoji,
     }
+
+
+def _send_push_sync(user_id, title, body, tag, url):
+    # Runs on a bare background thread (via run_in_background), which has no
+    # Flask application/request context of its own — push a fresh one so the
+    # ORM queries below have a session to run against. Deferred import: app.py
+    # imports helpers at module load time, before `app` is defined, so a
+    # top-level `from app import app` here would be circular.
+    from app import app as flask_app
+    with flask_app.app_context():
+        subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
+        if not subscriptions:
+            return
+        vapid_private_key = os.getenv('VAPID_PRIVATE_KEY')
+        vapid_claims_email = os.getenv('VAPID_CLAIMS_EMAIL', 'mercurymcindoe@gmail.com')
+        if not vapid_private_key:
+            print('[push] skipped — VAPID_PRIVATE_KEY not set')
+            return
+        payload = json.dumps({'title': title, 'body': body, 'tag': tag, 'url': url})
+        for sub in subscriptions:
+            try:
+                webpush(
+                    subscription_info={
+                        'endpoint': sub.endpoint,
+                        'keys': {'p256dh': sub.p256dh, 'auth': sub.auth},
+                    },
+                    data=payload,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims={'sub': f'mailto:{vapid_claims_email}'},
+                )
+            except WebPushException as e:
+                status = e.response.status_code if e.response is not None else None
+                if status in (404, 410):
+                    # Subscription expired or was revoked browser-side — stop
+                    # trying it rather than erroring on every future notification.
+                    db.session.delete(sub)
+                    db.session.commit()
+                else:
+                    print(f'[push] failed to send to user {user_id}: {e}')
+            except Exception as e:
+                print(f'[push] failed to send to user {user_id}: {e}')
+
+
+def send_push(user_id, title, body, tag=None, url=None):
+    """Fire-and-forget a push notification to every device `user_id` has
+    subscribed on. Never raises — a slow/unreachable push service must not
+    block the request that triggered it (same reasoning as emailer.py's
+    SMTP calls), and a user with push disabled/unsupported is a no-op, not
+    an error."""
+    run_in_background(_send_push_sync, user_id, title, body, tag, url)

@@ -19,6 +19,7 @@ from helpers import (
     post_payload,
     sync_project_status,
     prune_notifications,
+    send_push,
 )
 
 posts_bp = Blueprint('posts', __name__)
@@ -309,6 +310,18 @@ def add_reaction(post_id):
         db.session.commit()
         if post.user_id != current_user.id:
             prune_notifications(post.user_id)
+            like_count = Reaction.query.filter_by(post_id=post_id).count()
+            body = (
+                f'{current_user.display_name} liked your post' if like_count <= 1
+                else f'{current_user.display_name} and {like_count - 1} others liked your post'
+            )
+            send_push(
+                post.user_id,
+                title='New like',
+                body=body,
+                tag=f'reaction-post-{post_id}',
+                url=f'/posts/{post_id}',
+            )
 
     return post_payload(post), 200
 

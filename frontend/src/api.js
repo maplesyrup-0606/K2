@@ -146,6 +146,17 @@ export const api = {
   listGyms: () => request('/api/gyms'),
   favoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'POST' }),
   unfavoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'DELETE' }),
+  pushPublicKey: () => request('/api/push/public-key'),
+  subscribePush: (subscription) =>
+    request('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    }),
+  unsubscribePush: (endpoint) =>
+    request('/api/push/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    }),
   addGym: ({ name, city, country }) =>
     request('/api/admin/gyms', {
       method: 'POST',

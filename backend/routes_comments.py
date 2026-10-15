@@ -5,7 +5,7 @@ from flask_login import current_user, login_required
 
 from extensions import db
 from models import Post, Comment, Notification
-from helpers import comment_payload, prune_notifications
+from helpers import comment_payload, prune_notifications, send_push
 
 comments_bp = Blueprint('comments', __name__)
 
@@ -73,6 +73,14 @@ def create_comment(post_id):
     db.session.commit()
     if notify_user_id != current_user.id:
         prune_notifications(notify_user_id)
+        title = 'New reply' if notif_type == 'comment_reply' else 'New comment'
+        preview = body if len(body) <= 80 else body[:77] + '...'
+        send_push(
+            notify_user_id,
+            title=title,
+            body=f'{current_user.display_name}: {preview}',
+            url=f'/posts/{post.id}',
+        )
 
     return comment_payload(comment), 201
 

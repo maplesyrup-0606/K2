@@ -455,3 +455,29 @@ class SocialLink(db.Model):
 
     # relations
     user = db.relationship('User', backref='social_links')
+
+
+class PushSubscription(db.Model):
+    """One row per browser/device a user has enabled push notifications on
+    (PushManager.subscribe() per install). `endpoint` is globally unique —
+    it's the browser's own per-subscription push-service URL."""
+    __tablename__ = 'push_subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id'),
+        nullable=False,
+        index=True,
+    )
+    endpoint = db.Column(db.String(1000), unique=True, nullable=False)
+    p256dh = db.Column(db.String(255), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # relations
+    user = db.relationship('User')

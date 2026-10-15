@@ -13,7 +13,18 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Switched from the default `generateSW` strategy to `injectManifest`:
+      // push notifications need a `push`/`notificationclick` listener in the
+      // service worker, which generateSW's auto-generated sw.js has no hook
+      // for. srcDir/filename point at our own source file below; Workbox
+      // precaching + the SPA navigation fallback are wired up by hand inside
+      // it (see src/sw.js) since injectManifest doesn't synthesize that part.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+      },
       manifest: {
         name: 'K2',
         short_name: 'K2',
@@ -26,11 +37,6 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

@@ -108,6 +108,7 @@ from routes_notifications import notifications_bp
 from routes_media import media_bp
 from routes_comments import comments_bp
 from routes_invites import invites_bp
+from routes_push import push_bp
 
 app.register_blueprint(health_bp)
 app.register_blueprint(auth_bp)
@@ -121,6 +122,7 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(media_bp)
 app.register_blueprint(comments_bp)
 app.register_blueprint(invites_bp)
+app.register_blueprint(push_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

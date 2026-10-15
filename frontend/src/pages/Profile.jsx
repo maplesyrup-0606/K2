@@ -9,6 +9,14 @@ import Composer from './Composer'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
 import FollowListModal from '../components/FollowListModal'
+import {
+  isPushSupported,
+  isStandalone,
+  isIOS,
+  getPushSubscriptionState,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../lib/push'
 
 const BIO_MAX_LEN = 160
 
@@ -52,6 +60,29 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   const [projects, setProjects] = useState([])
   const [projectStatus, setProjectStatus] = useState('active')
   const [loadingProjects, setLoadingProjects] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+
+  // Push subscription state belongs to this browser/device, not to whichever
+  // profile is being viewed — only load/offer it on the signed-in user's own
+  // profile page.
+  useEffect(() => {
+    if (!currentUser || !profile || currentUser.id !== profile.id) return
+    if (!isPushSupported()) return
+    let cancelled = false
+    getPushSubscriptionState().then((enabled) => {
+      if (!cancelled) setPushEnabled(enabled)
+    })
+    return () => { cancelled = true }
+  }, [currentUser, profile])
+
+  async function handlePushToggle() {
+    if (pushBusy) return
+    setPushBusy(true)
+    const success = pushEnabled ? await unsubscribeFromPush() : await subscribeToPush()
+    if (success) setPushEnabled(!pushEnabled)
+    setPushBusy(false)
+  }
 
   useAsyncEffect(async () => {
     setLoading(true)
@@ -321,6 +352,41 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
                 >
                   Log out
                 </button>
+              </div>
+            )}
+
+            {/* Notifications */}
+            {isOwnProfile && isPushSupported() && (
+              <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                {isIOS() && !isStandalone() ? (
+                  <p className="text-xs text-stone-400 dark:text-stone-500">
+                    Install K2 to your home screen to enable notifications.{' '}
+                    <Link to="/install" className="text-violet-600 dark:text-violet-400 hover:underline">
+                      How to install
+                    </Link>
+                  </p>
+                ) : (
+                  <>
+                    <span className="text-sm text-stone-700 dark:text-stone-300">Push notifications</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={pushEnabled}
+                      aria-label="Push notifications"
+                      onClick={handlePushToggle}
+                      disabled={pushBusy}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                        pushEnabled ? 'bg-violet-600' : 'bg-stone-300 dark:bg-stone-700'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          pushEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </>
+                )}
               </div>
             )}
 

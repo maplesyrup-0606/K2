@@ -6,7 +6,7 @@ from sqlalchemy import or_
 
 from extensions import db
 from models import Plan, PlanAttendee, PlanInvite, Gym, Follow, Notification
-from helpers import to_utc, plan_payload, prune_notifications
+from helpers import to_utc, plan_payload, prune_notifications, send_push
 
 plans_bp = Blueprint('plans', __name__)
 
@@ -90,6 +90,13 @@ def create_plan():
     db.session.commit()
     for uid in invite_user_ids:
         prune_notifications(uid)
+        send_push(
+            uid,
+            title='Plan invite',
+            body=f'{current_user.display_name} invited you to climb',
+            tag=f'plan-invite-{plan.id}',
+            url='/plans',
+        )
     return plan_payload(plan), 201
 
 @plans_bp.route('/api/plans', methods=['GET'])
