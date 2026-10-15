@@ -310,7 +310,15 @@ def add_reaction(post_id):
         db.session.commit()
         if post.user_id != current_user.id:
             prune_notifications(post.user_id)
-            like_count = Reaction.query.filter_by(post_id=post_id).count()
+            # Distinct reactors, not raw Reaction rows — one person reacting
+            # with two different emojis on the same post is still one like,
+            # not "X and 1 others".
+            like_count = (
+                db.session.query(Reaction.user_id)
+                .filter_by(post_id=post_id)
+                .distinct()
+                .count()
+            )
             body = (
                 f'{current_user.display_name} liked your post' if like_count <= 1
                 else f'{current_user.display_name} and {like_count - 1} others liked your post'

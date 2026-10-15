@@ -195,6 +195,34 @@ def test_reaction_triggers_push_with_like_count(client, db, inline_push, monkeyp
     assert kwargs['tag'] == f'reaction-post-{post.id}'
 
 
+def test_same_reactor_multiple_emoji_does_not_inflate_like_count(client, db, inline_push, monkeypatch):
+    import routes_posts
+    alice = make_user(db, username='alice', email='alice@example.com')
+    bob = make_user(db, username='bob', email='bob@example.com')
+    gym = make_gym(db)
+
+    from models import Post
+    post = Post(
+        user_id=alice.id, grade_scale='v', grade_value=3, outcome='sent',
+        attempts_bucket='1', photo_path='x.jpg', hold_color='#000000', gym_id=gym.id,
+    )
+    db.session.add(post)
+    db.session.commit()
+
+    pushes = []
+    monkeypatch.setattr(routes_posts, 'send_push', lambda *a, **k: pushes.append((a, k)))
+
+    login(client, bob)
+    client.post(f'/api/posts/{post.id}/reactions', json={'emoji': '🔥'})
+    client.post(f'/api/posts/{post.id}/reactions', json={'emoji': '👍'})
+
+    # Bob reacting twice with different emojis is still one reactor — both
+    # pushes should read as a single like, never "Bob and 1 others".
+    assert len(pushes) == 2
+    for _, kwargs in pushes:
+        assert kwargs['body'] == 'Bob liked your post'
+
+
 def test_self_reaction_does_not_push(client, db, inline_push, monkeypatch):
     import routes_posts
     alice = make_user(db)
