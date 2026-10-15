@@ -356,7 +356,7 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
             )}
 
             {/* Notifications */}
-            {isOwnProfile && isPushSupported() && (
+            {isOwnProfile && (isPushSupported() || (isIOS() && !isStandalone())) && (
               <div className="mt-3 flex items-center justify-between gap-3 px-1">
                 {isIOS() && !isStandalone() ? (
                   <p className="text-xs text-stone-400 dark:text-stone-500">
