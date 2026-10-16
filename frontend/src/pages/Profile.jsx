@@ -232,11 +232,14 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   if (notFound) return <Navigate to="/" replace />
 
   const isOwnProfile = currentUser && profile && currentUser.id === profile.id
+  // Known from the URL before the profile fetch lands, so the header title
+  // doesn't flash @username first.
+  const isOwnUrl = currentUser?.username === username?.toLowerCase()
 
   return (
     <PageShell
       header={
-        <PageHeader title={isOwnProfile ? 'My profile' : `@${username}`} />
+        <PageHeader title={isOwnUrl ? 'My profile' : `@${username}`} />
       }
     >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
