@@ -9,6 +9,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { usePullToRefresh } from '../components/PullToRefresh'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
+import { HEADER_HEIGHT_CLASS } from '../components/PageHeader'
 
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
@@ -65,7 +66,7 @@ export default function Home({ user, onLogout }) {
   return (
     <PageShell
       header={
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+        <div className={`max-w-2xl mx-auto px-4 ${HEADER_HEIGHT_CLASS} flex items-center justify-between gap-2`}>
           <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">K2</h1>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link

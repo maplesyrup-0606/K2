@@ -7,6 +7,7 @@ import PhotoWall from '../components/PhotoWall'
 import FormField from '../components/FormField'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
+import PageHeader from '../components/PageHeader'
 import FollowListModal from '../components/FollowListModal'
 import {
   isPushSupported,
@@ -235,17 +236,7 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   return (
     <PageShell
       header={
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            K2
-          </Link>
-          <Link
-            to="/"
-            className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-          >
-            ← Feed
-          </Link>
-        </div>
+        <PageHeader title={isOwnProfile ? 'My profile' : `@${username}`} />
       }
     >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">

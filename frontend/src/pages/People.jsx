@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import PageShell from '../components/PageShell'
+import PageHeader from '../components/PageHeader'
 import Button from '../components/Button'
 import InviteModal from '../components/InviteModal'
 import Avatar from '../components/Avatar'
@@ -55,19 +56,16 @@ export default function People() {
   return (
     <PageShell
       header={
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            K2
-          </Link>
+        <PageHeader>
           <input
             type="search"
             autoComplete="off"
             placeholder="Search climbers"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 min-w-0 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600"
+            className="w-full min-w-0 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600"
           />
-        </div>
+        </PageHeader>
       }
     >
       <main className="max-w-2xl mx-auto px-4 py-4 pb-24">

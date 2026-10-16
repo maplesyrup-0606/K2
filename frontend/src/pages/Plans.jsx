@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../api'
 import PlanCard from '../components/PlanCard'
 import FabButton from '../components/FabButton'
@@ -8,6 +7,7 @@ import EditPlanModal from './EditPlanModal'
 import { usePullToRefresh } from '../components/PullToRefresh'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
+import PageHeader from '../components/PageHeader'
 
 function dayKey(iso) {
   const d = new Date(iso)
@@ -104,14 +104,7 @@ export default function Plans({ currentUser }) {
   return (
     <PageShell
       header={
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            K2
-          </Link>
-          <Link to="/" className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
-            ← Feed
-          </Link>
-        </div>
+        <PageHeader title="Plans" />
       }
     >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">

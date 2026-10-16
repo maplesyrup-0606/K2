@@ -3,6 +3,7 @@ import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import PostCard from '../components/PostCard'
 import PageShell from '../components/PageShell'
+import PageHeader from '../components/PageHeader'
 import { formatSessionDate, gradeLabel, outcomeLabel } from '../lib/sessionFormat'
 import Composer from './Composer'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
@@ -71,16 +72,7 @@ export default function SessionPage({ currentUser }) {
   return (
     <PageShell
       header={
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            to={`/u/${username}`}
-            className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-          >
-            ← @{username}
-          </Link>
-          <span className="text-sm font-medium text-stone-900 dark:text-stone-100">Session</span>
-          <span className="w-12" aria-hidden="true" />
-        </div>
+        <PageHeader title="Session" backTo={`/u/${username}`} />
       }
     >
       <main className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-6">
