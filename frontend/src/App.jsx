@@ -6,7 +6,7 @@ import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
-import ProjectPage from './pages/ProjectPage'
+import SessionPage from './pages/SessionPage'
 import PostPage from './pages/PostPage'
 import Plans from './pages/Plans'
 import People from './pages/People'
@@ -26,7 +26,15 @@ export default function App() {
   const refresh = useAsyncEffect(async () => {
     try {
       const { ok, data } = await api.getMe()
-      setMe(ok ? data : null)
+      let user = ok ? data : null
+      // The server buckets new posts into local days using this zone, so
+      // keep it in step with the device (covers travel and first login).
+      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (user && deviceTimezone && user.timezone !== deviceTimezone) {
+        api.updateMe({ timezone: deviceTimezone })
+        user = { ...user, timezone: deviceTimezone }
+      }
+      setMe(user)
     } catch {
       setMe(null)
     }
@@ -84,14 +92,14 @@ export default function App() {
           }
         />
         <Route
-          path="/projects/:id"
+          path="/u/:username/sessions/:date"
           element={
             !me ? (
               <Navigate to="/login" replace />
             ) : !me.is_onboarded ? (
               <Navigate to="/onboarding" replace />
             ) : (
-              <ProjectPage currentUser={me} />
+              <SessionPage currentUser={me} />
             )
           }
         />

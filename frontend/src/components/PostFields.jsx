@@ -77,15 +77,13 @@ function getCanvasPoint(e, canvas) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 // Renders the create-mode field set (photo/lasso, grade, hold color, outcome,
-// project link, attempts, notes, gym trigger) for one post. Fully controlled
+// attempts, notes, gym trigger) for one post. Fully controlled
 // via `card`/`onChange` so a batch composer can mount one instance per card.
 export default function PostFields({
   card,
   onChange,
   gyms,
   onGymOpen,
-  matchingProjects,
-  loadingProjects,
 }) {
   const [localError, setLocalError] = useState(null)
   const [lassoActive, setLassoActive] = useState(false)
@@ -106,7 +104,6 @@ export default function PostFields({
 
   const gradeMin = GRADE_RANGES[card.gradeScale].min
   const gradeMax = GRADE_RANGES[card.gradeScale].max
-  const gradeLabel = card.gradeScale === 'v' ? `V${card.gradeValue}` : `Comp ${card.gradeValue}`
 
   // Load original image into canvas when lasso mode activates
   useEffect(() => {
@@ -253,7 +250,7 @@ export default function PostFields({
 
   function handleScaleChange(scale) {
     const { min, max } = GRADE_RANGES[scale]
-    const patch = { gradeScale: scale, projectSelection: null }
+    const patch = { gradeScale: scale }
     if (card.gradeValue < min) patch.gradeValue = min
     if (card.gradeValue > max) patch.gradeValue = max
     onChange(patch)
@@ -383,7 +380,7 @@ export default function PostFields({
             <button
               key={n}
               type="button"
-              onClick={() => onChange({ gradeValue: n, projectSelection: null })}
+              onClick={() => onChange({ gradeValue: n })}
               className={`py-1.5 rounded-lg text-sm font-medium transition ${
                 card.gradeValue === n
                   ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
@@ -434,69 +431,6 @@ export default function PostFields({
               {label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Project linking */}
-      <div className="mt-4">
-        <Label suffix="(optional)">Link to a project?</Label>
-        <div className="mt-2 space-y-2">
-          {loadingProjects && (
-            <div className="text-xs text-stone-400 dark:text-stone-500">Loading…</div>
-          )}
-
-          {!loadingProjects && matchingProjects.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {matchingProjects.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => onChange({ projectSelection: card.projectSelection === p.id ? null : p.id })}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition border ${
-                    card.projectSelection === p.id
-                      ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900'
-                      : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/50'
-                  }`}
-                >
-                  {p.title}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!loadingProjects && matchingProjects.length === 0 && (
-            <div className="text-xs text-stone-400 dark:text-stone-500">
-              No existing {gradeLabel} projects.
-            </div>
-          )}
-
-          {card.projectSelection !== 'new' ? (
-            <button
-              type="button"
-              onClick={() => onChange({ projectSelection: 'new' })}
-              className="text-sm text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 underline"
-            >
-              + New project
-            </button>
-          ) : (
-            <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg p-3 space-y-2">
-              <input
-                type="text"
-                value={card.newProjectTitle}
-                onChange={(e) => onChange({ newProjectTitle: e.target.value })}
-                placeholder={`Title (e.g. "orange ${gradeLabel} cave")`}
-                maxLength={120}
-                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-base text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900"
-              />
-              <button
-                type="button"
-                onClick={() => onChange({ projectSelection: null, newProjectTitle: '' })}
-                className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 from functools import wraps
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import current_app
 from flask_login import current_user
@@ -16,7 +17,7 @@ from pywebpush import webpush, WebPushException
 
 from emailer import run_in_background
 from extensions import db
-from models import User, Post, Project, Gym, Reaction, Follow, Notification, SocialLink, Comment, PushSubscription
+from models import User, Post, SessionCover, Gym, Reaction, Follow, Notification, SocialLink, Comment, PushSubscription
 
 
 def to_utc(dt):
@@ -98,6 +99,7 @@ def user_payload(user):
         'is_onboarded': user.is_onboarded,
         'is_admin': user.is_admin,
         'profile_customized': user.profile_customized,
+        'timezone': user.tz_name,
         'bio': user.bio,
         'instagram_handle': _instagram_handle(user),
     }
@@ -129,6 +131,7 @@ def post_payload(post):
         'user_id': post.user_id,
         'created_at': iso_utc(post.created_at),
         'climbed_at': iso_utc(post.climbed_at),
+        'climbed_on': post.climbed_on.isoformat(),
         'grade_scale': post.grade_scale,
         'grade_value': post.grade_value,
         'outcome': post.outcome,
@@ -136,7 +139,6 @@ def post_payload(post):
         'photo_path': post.photo_path,
         'notes': post.notes,
         'hold_color': post.hold_color,
-        'project_id': post.project_id,
         'gym': {
             'id': post.gym.id,
             'name': post.gym.name,
@@ -179,39 +181,6 @@ def comment_payload(comment):
     }
 
 ATTEMPTS_LOWER = {'1': 1, '2': 2, '3-4': 3, '5-9': 5, '10+': 10}
-PROJECT_LIFETIME_DAYS = 30
-
-def project_payload(project, include_posts=False):
-    posts_q = Post.query.filter_by(project_id=project.id).order_by(
-        Post.climbed_at.desc(), Post.id.desc()
-    )
-    posts = posts_q.all()
-
-    sessions_count = len(posts)
-    attempts_lower = sum(ATTEMPTS_LOWER.get(p.attempts_bucket, 0) for p in posts)
-
-    expires_at = to_utc(project.created_at) + timedelta(days=PROJECT_LIFETIME_DAYS)
-    is_expired = datetime.now(timezone.utc) > expires_at
-
-    payload = {
-        'id': project.id,
-        'user_id': project.user_id,
-        'title': project.title,
-        'photo_path': project.photo_path,
-        'grade_scale': project.grade_scale,
-        'grade_value': project.grade_value,
-        'status': project.status,
-        'created_at': iso_utc(project.created_at),
-        'closed_at': iso_utc(project.closed_at) if project.closed_at else None,
-        'expires_at': iso_utc(expires_at),
-        'is_expired': is_expired,
-        'sessions': sessions_count,
-        'attempts_lower_bound': attempts_lower,
-    }
-    if include_posts:
-        payload['posts'] = [post_payload(p) for p in posts]
-    return payload
-
 
 def normalize_instagram_handle(raw):
     """Accepts a bare handle, an @handle, or a pasted profile URL."""
@@ -243,6 +212,26 @@ def _fuzzy_subsequence(q, text):
     return True
 
 
+DEFAULT_TIMEZONE = 'America/Vancouver'
+
+
+def valid_timezone(name):
+    """Returns name if it is a known IANA zone, else None."""
+    if not isinstance(name, str) or not name or len(name) > 64:
+        return None
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return None
+    return name
+
+
+def local_day(moment, tz_name):
+    """Calendar date of a moment in the given zone (falls back to the default)."""
+    zone = ZoneInfo(valid_timezone(tz_name) or DEFAULT_TIMEZONE)
+    return to_utc(moment).astimezone(zone).date()
+
+
 VALID_OUTCOMES = {'sent', 'projecting', 'gave_up'}
 VALID_ATTEMPTS = {'1', '2', '3-4', '5-9', '10+'}
 GRADE_RANGES = {'v': (0, 12), 'comp': (1, 4)}
@@ -251,20 +240,6 @@ ALLOWED_MIMES = {
     'image/png':  '.png',
     'image/webp': '.webp',
 }
-
-def sync_project_status(project, outcome):
-    # Logging a terminal outcome against an active project closes it, so it
-    # shows up under the profile's Sent/Abandoned filters without a manual
-    # status change. Re-opening stays explicit (ProjectPage button).
-    if project is None or project.status != 'active':
-        return
-    if outcome == 'sent':
-        project.status = 'sent'
-        project.closed_at = datetime.now(timezone.utc)
-    elif outcome == 'gave_up':
-        project.status = 'abandoned'
-        project.closed_at = datetime.now(timezone.utc)
-
 
 def gym_payload(gym, is_favorite=False):
     return {

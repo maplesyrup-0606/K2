@@ -9,15 +9,16 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 import app
 from extensions import db
-from models import Post, Project, Gym, Reaction, Notification, Follow
+from models import Post, SessionCover, Gym, Reaction, Notification, Follow
 from helpers import (
     GRADE_RANGES,
     VALID_OUTCOMES,
     VALID_ATTEMPTS,
     ALLOWED_MIMES,
     to_utc,
+    local_day,
+    valid_timezone,
     post_payload,
-    sync_project_status,
     prune_notifications,
     send_push,
 )
@@ -58,17 +59,6 @@ def create_post():
     if not hold_color or not re.match(r'^#[0-9a-fA-F]{6}$', hold_color):
         return {'error': 'hold_color is required and must be a valid hex color (#RRGGBB)'}, 400
 
-    project = None
-    project_id_str = form.get('project_id')
-    if project_id_str:
-        try:
-            project_id = int(project_id_str)
-        except ValueError:
-            return {'error': 'project_id must be an integer'}, 400
-        project = db.session.get(Project, project_id)
-        if project is None or project.user_id != current_user.id:
-            return {'error': 'project not found'}, 400
-
     gym_id_str = form.get('gym_id')
     if not gym_id_str:
         return {'error': 'gym_id is required'}, 400
@@ -87,6 +77,10 @@ def create_post():
             return {'error': 'climbed_at must be ISO 8601'}, 400
     else:
         climbed_at = datetime.now(timezone.utc)
+
+    # The day is decided by the poster's own clock, not the server's UTC one.
+    tz_name = valid_timezone(form.get('timezone')) or current_user.tz_name
+    climbed_on = local_day(climbed_at, tz_name)
 
     photo = request.files.get('photo')
     if photo is None or photo.filename == '':
@@ -118,6 +112,7 @@ def create_post():
     post = Post(
         user_id=current_user.id,
         climbed_at=climbed_at,
+        climbed_on=climbed_on,
         grade_scale=grade_scale,
         grade_value=grade_value,
         outcome=outcome,
@@ -125,12 +120,10 @@ def create_post():
         photo_path=photo_path_rel,
         notes=notes,
         hold_color=hold_color,
-        project_id=project.id if project else None,
         gym_id=gym_id,
     )
 
     db.session.add(post)
-    sync_project_status(project, outcome)
     db.session.commit()
 
     return post_payload(post), 201
@@ -184,6 +177,7 @@ def delete_post(post_id):
     except OSError:
         pass
 
+    SessionCover.query.filter_by(post_id=post.id).delete()
     db.session.delete(post)
     db.session.commit()
 
@@ -242,19 +236,6 @@ def update_post(post_id):
             return {'error': 'notes must be at most 2000 characters'}, 400
         post.notes = notes  # may be None to clear
 
-    if 'project_id' in data:
-        if data['project_id'] is None:
-            post.project_id = None
-        else:
-            try:
-                pid = int(data['project_id'])
-            except (ValueError, TypeError):
-                return {'error': 'project_id must be an integer'}, 400
-            project = db.session.get(Project, pid)
-            if project is None or project.user_id != current_user.id:
-                return {'error': 'project not found'}, 400
-            post.project_id = pid
-
     if 'gym_id' in data:
         if data['gym_id'] is None:
             post.gym_id = None
@@ -272,9 +253,6 @@ def update_post(post_id):
         if hc is not None and not re.match(r'^#[0-9a-fA-F]{6}$', hc):
             return {'error': 'hold_color must be a valid hex color (#RRGGBB)'}, 400
         post.hold_color = hc
-
-    if post.project_id is not None:
-        sync_project_status(db.session.get(Project, post.project_id), post.outcome)
 
     db.session.commit()
     return post_payload(post)

@@ -59,7 +59,7 @@ db.init_app(app)
 migrate.init_app(app, db)
 login_manager.init_app(app)
 limiter.init_app(app)
-from models import User, Project, Post, Reaction, Gym, Plan, PlanAttendee, PlanInvite, Notification, Follow, SocialLink
+from models import User, Post, SessionCover, Reaction, Gym, Plan, PlanAttendee, PlanInvite, Notification, Follow, SocialLink
 
 oauth.init_app(app)
 oauth.register(
@@ -100,7 +100,7 @@ from routes_health import health_bp
 from routes_auth import auth_bp
 from routes_users import users_bp
 from routes_posts import posts_bp
-from routes_projects import projects_bp
+from routes_sessions import sessions_bp
 from routes_plans import plans_bp
 from routes_gyms import gyms_bp
 from routes_admin import admin_bp
@@ -114,7 +114,7 @@ app.register_blueprint(health_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(posts_bp)
-app.register_blueprint(projects_bp)
+app.register_blueprint(sessions_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(gyms_bp)
 app.register_blueprint(admin_bp)

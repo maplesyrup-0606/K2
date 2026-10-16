@@ -22,8 +22,6 @@ function makeEmptyCard(gymId = '') {
     notes: '',
     holdColor: null,
     gymId,
-    projectSelection: null,
-    newProjectTitle: '',
     photoFile: null,
     photoPreviewUrl: null,
     photoThumbDataUrl: null,
@@ -37,11 +35,10 @@ function validateCard(card) {
   if (!card.photoFile || card.needsPhotoReattach) return 'Add a photo'
   if (!card.holdColor) return 'Pick a hold color'
   if (!card.gymId) return 'Pick a gym'
-  if (card.projectSelection === 'new' && !card.newProjectTitle.trim()) return 'Project title required'
   return null
 }
 
-export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
+export default function Composer({ post, onClose, onPosted, onUpdated }) {
   const isEdit = !!post
 
   // ── Edit-mode state (single post, unchanged behavior) ──────────────────────
@@ -69,8 +66,6 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
   const [postedCount, setPostedCount] = useState(0)
 
   const [gyms, setGyms] = useState([])
-  const [activeProjects, setActiveProjects] = useState([])
-  const [loadingProjects, setLoadingProjects] = useState(false)
 
   const dragStateRef = useRef({ startX: 0, startY: 0, dx: 0, axisLocked: null })
   const [dragOffset, setDragOffset] = useState(0)
@@ -136,18 +131,6 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
     })
   }
 
-  useEffect(() => {
-    if (isEdit || !user?.username) return
-    let cancelled = false
-    setLoadingProjects(true)
-    api.listUserProjects(user.username, 'active').then(({ ok, data }) => {
-      if (cancelled) return
-      if (ok) setActiveProjects(data.projects)
-      setLoadingProjects(false)
-    })
-    return () => { cancelled = true }
-  }, [isEdit, user?.username])
-
   // Persist the in-progress batch so backgrounding/eviction doesn't lose it —
   // sessionStorage clears itself when the tab/PWA instance actually closes.
   useEffect(() => {
@@ -185,7 +168,7 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
     cards.length > 1 ||
     cards.some((c) =>
       c.photoFile || c.photoPreviewUrl || c.needsPhotoReattach || c.notes ||
-      c.holdColor || c.gradeValue !== 0 || c.projectSelection != null
+      c.holdColor || c.gradeValue !== 0
     )
   )
 
@@ -224,9 +207,6 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
     setDragOffset(0)
   }
 
-  const matchingProjectsFor = (card) =>
-    activeProjects.filter((p) => p.grade_scale === card.gradeScale && p.grade_value === card.gradeValue)
-
   // ── Submit ───────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
@@ -264,26 +244,6 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
 
     let remaining = cards
     for (const card of cards) {
-      let projectId = typeof card.projectSelection === 'number' ? card.projectSelection : null
-
-      if (card.projectSelection === 'new') {
-        const projectFd = new FormData()
-        projectFd.append('title', card.newProjectTitle.trim())
-        projectFd.append('grade_scale', card.gradeScale)
-        projectFd.append('grade_value', String(card.gradeValue))
-        projectFd.append('photo', card.photoFile)
-
-        const res = await api.createProject(projectFd)
-        if (!res.ok) {
-          setSubmitting(false)
-          const idx = remaining.findIndex((c) => c.id === card.id)
-          setCards(remaining.map((c) => (c.id === card.id ? { ...c, error: res.data?.error || 'Failed to create project' } : c)))
-          setActiveIndex(idx)
-          return
-        }
-        projectId = res.data.id
-      }
-
       const fd = new FormData()
       fd.append('photo', card.photoFile)
       fd.append('grade_scale', card.gradeScale)
@@ -292,8 +252,10 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
       fd.append('attempts_bucket', card.attempts)
       if (card.notes.trim()) fd.append('notes', card.notes.trim())
       fd.append('hold_color', card.holdColor)
-      if (projectId != null) fd.append('project_id', String(projectId))
       fd.append('gym_id', card.gymId)
+      // Lets the server file the climb under the day it happened for the
+      // climber, not the UTC day.
+      fd.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone)
 
       const { ok, data } = await api.createPost(fd)
       if (!ok) {
@@ -573,8 +535,6 @@ export default function Composer({ user, post, onClose, onPosted, onUpdated }) {
                       onChange={(patch) => updateCard(card.id, patch)}
                       gyms={gyms}
                       onGymOpen={() => setGymOpenCardId(card.id)}
-                      matchingProjects={matchingProjectsFor(card)}
-                      loadingProjects={loadingProjects}
                     />
                   </div>
                 ))}

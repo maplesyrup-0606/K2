@@ -10,20 +10,19 @@ from sqlalchemy import func
 
 import app
 from extensions import db
-from models import User, Post, Project, Follow, Notification, SocialLink
+from models import User, Post, Follow, Notification, SocialLink
 from helpers import (
     ALLOWED_MIMES,
-    PROJECT_LIFETIME_DAYS,
     iso_utc,
     user_payload,
     post_payload,
-    project_payload,
     _instagram_handle,
     _follow_state,
     _fuzzy_subsequence,
     normalize_instagram_handle,
     prune_notifications,
     send_push,
+    valid_timezone,
 )
 
 users_bp = Blueprint('users', __name__)
@@ -82,6 +81,12 @@ def update_me():
                 db.session.add(SocialLink(user_id=current_user.id, platform='instagram', handle=handle))
             else:
                 existing_link.handle = handle
+
+    if 'timezone' in data:
+        tz_name = valid_timezone(data['timezone'])
+        if tz_name is None:
+            return {'error': 'timezone must be a valid IANA zone name'}, 400
+        current_user.tz_name = tz_name
 
     db.session.commit()
     return user_payload(current_user)
@@ -385,25 +390,3 @@ def get_user_stats(username):
         'v_pyramid': v_pyramid,
         'comp_pyramid': comp_pyramid,
     }
-
-@users_bp.route('/api/users/<username>/projects', methods=['GET'])
-@login_required
-def list_user_projects(username):
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        return {'error': 'user not found'}, 404
-
-    status = request.args.get('status')
-    if status and status not in {'active', 'sent', 'abandoned'}:
-        return {'error': 'invalid status'}, 400
-
-    q = Project.query.filter_by(user_id=user.id)
-    if status:
-        q = q.filter_by(status=status)
-        if status == 'active':
-            # An "active" project past the 30-day lifetime is effectively gone
-            cutoff = datetime.now(timezone.utc) - timedelta(days=PROJECT_LIFETIME_DAYS)
-            q = q.filter(Project.created_at > cutoff)
-
-    projects = q.order_by(Project.created_at.desc()).all()
-    return {'projects': [project_payload(p) for p in projects]}

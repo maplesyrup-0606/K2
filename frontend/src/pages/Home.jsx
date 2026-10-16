@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import Composer from './Composer'
-import PostCard from '../components/PostCard'
+import { SessionFeedCard } from '../components/SessionCards'
 import FabButton from '../components/FabButton'
 import NotificationsBell from '../components/NotificationsBell'
 import ThemeToggle from '../components/ThemeToggle'
@@ -13,7 +13,7 @@ import PageShell from '../components/PageShell'
 export default function Home({ user, onLogout }) {
   const [composerOpen, setComposerOpen] = useState(false)
   const [feed, setFeed] = useState('all')
-  const [posts, setPosts] = useState([])
+  const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [nextOffset, setNextOffset] = useState(null)
@@ -26,14 +26,14 @@ export default function Home({ user, onLogout }) {
     const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
-    const { ok, data } = await api.listPosts(0, 20, feed)
+    const { ok, data } = await api.listFeedSessions(0, 20, feed)
     if (requestId !== requestIdRef.current) return
     setLoading(false)
     if (!ok) {
       setError(data?.error || 'Failed to load feed')
       return
     }
-    setPosts(data.posts)
+    setSessions(data.sessions)
     setNextOffset(data.next_offset)
   }, [feed])
 
@@ -43,11 +43,11 @@ export default function Home({ user, onLogout }) {
     if (nextOffset == null || loadingMore) return
     const requestId = ++requestIdRef.current
     setLoadingMore(true)
-    const { ok, data } = await api.listPosts(nextOffset, 20, feed)
+    const { ok, data } = await api.listFeedSessions(nextOffset, 20, feed)
     setLoadingMore(false)
     if (requestId !== requestIdRef.current) return
     if (!ok) return
-    setPosts((prev) => [...prev, ...data.posts])
+    setSessions((prev) => [...prev, ...data.sessions])
     setNextOffset(data.next_offset)
   }
 
@@ -56,17 +56,11 @@ export default function Home({ user, onLogout }) {
     await onLogout()
   }
 
-  function handlePosted(post) {
-    // Optimistic: prepend the new post to the top of the feed
-    setPosts((prev) => [post, ...prev])
+  // A new climb can change its session's totals, hardest send and cover, so
+  // re-fetch rather than splice it in.
+  function handlePosted() {
+    loadFeed()
   }
-
-  function handleReactionChange(updatedPost) {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
-    )
-  }
-
 
   return (
     <PageShell
@@ -162,18 +156,18 @@ export default function Home({ user, onLogout }) {
           </div>
         )}
 
-        {!loading && !error && posts.length === 0 && feed === 'all' && (
+        {!loading && !error && sessions.length === 0 && feed === 'all' && (
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-8 text-center">
             <h2 className="text-xl font-semibold">
               Welcome, {user.display_name.split(' ')[0]}.
             </h2>
             <p className="mt-2 text-stone-500 dark:text-stone-400">
-              No posts yet — tap the + to log your first climb.
+              No sessions yet. Tap the + to log your first climb.
             </p>
           </div>
         )}
 
-        {!loading && !error && posts.length === 0 && feed === 'following' && (
+        {!loading && !error && sessions.length === 0 && feed === 'following' && (
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-8 text-center">
             <h2 className="text-xl font-semibold">Nobody to show yet.</h2>
             <p className="mt-2 text-stone-500 dark:text-stone-400">
@@ -185,15 +179,10 @@ export default function Home({ user, onLogout }) {
           </div>
         )}
 
-        {!loading && !error && posts.length > 0 && (
+        {!loading && !error && sessions.length > 0 && (
           <div className="space-y-6">
-            {posts.map((p) => (
-              <PostCard
-                key={p.id}
-                post={p}
-                currentUserId={user.id}
-                onReactionChange={handleReactionChange}
-              />
+            {sessions.map((session) => (
+              <SessionFeedCard key={`${session.user.id}-${session.date}`} session={session} />
             ))}
 
             {nextOffset != null && (
@@ -216,7 +205,6 @@ export default function Home({ user, onLogout }) {
 
       {composerOpen && (
         <Composer
-          user={user}
           onClose={() => setComposerOpen(false)}
           onPosted={handlePosted}
         />

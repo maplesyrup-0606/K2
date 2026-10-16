@@ -1,24 +1,24 @@
 # K2
 
-A private climbing log for a small friend group of indoor boulderers. Log your sessions, react to your friends' climbs, see who's planning to go to the gym this week, and track the projects you're working on.
-
-Invite-only — only emails on an allowlist can sign in. Admins manage the allowlist from the app.
+A climbing log for indoor boulderers, built as an installable PWA. Log every climb with a photo, grade, outcome and attempts. Climbs are grouped into **sessions** (one day of climbing), so your profile reads as a history of days rather than a pile of posts. Follow other climbers, react and comment, plan gym trips together, and track your progress over time.
 
 ---
 
 ## Features
 
-- Posts with photos, grade, outcome, attempts
-- Emoji reactions
-- Per-user profile with stats and grade pyramids
-- Projects with status tracking (active / sent / abandoned)
-- Intent board — who's climbing when, with join/leave
-- Notifications (reactions to your posts, joins on your plans)
-- Admin panel — invite allowlist and gym management
-- Dark mode (manual toggle + system preference)
-- Mobile-first with bottom-tab navigation
-- PWA — installable as a native app on iOS, Android, and desktop
-- Invite emails sent via Gmail when a new user is added
+- **Sessions.** Every climb you log on the same day forms one session. A session has a date, a gym, the day's hardest send, totals (climbs, sends, flashes) and its climbs stacked in order.
+  - You can pick which climb is the session cover. Without a pick, the cover is the highest-graded climb of the day, sent or not.
+  - The hardest send is ranked within the V scale first. Ties go to sent over project-ing over gave up, then to fewer attempts. Comp grades only lead a day with no V climbs.
+  - Project-ing is an outcome on a climb, not a tracked entity. Projecting climbs never count toward a session's hardest send.
+- **Profile tabs.** *Sessions* (one tile per day), *Progress* (stats and grade pyramids) and *All* (a photo wall of every climb, grouped by month).
+- **Home feed.** Session cards from everyone or only the people you follow. Opening one shows the full session.
+- **Climbs.** Photo, grade (V scale or comp), outcome (sent, project-ing, gave up), attempts, hold color, gym and notes. Flashes are sent climbs on the first attempt. Share any climb to an Instagram story.
+- **Social.** Follow and unfollow, follower and following lists, emoji reactions, threaded comments and climber search.
+- **Plans.** Say when you're heading to the gym, invite others, and join or leave plans.
+- **Notifications.** In-app bell plus Web Push for reactions, comments, new followers and plan activity, with a one-time prompt after login to enable them.
+- **Accounts.** Sign in with Google, Apple or email and password (with email verification and password reset). Registration is open.
+- **Admin.** Gym management and admin management from the app.
+- **PWA.** Installable on iOS, Android and desktop, with dark mode and mobile-first bottom navigation.
 
 ---
 
@@ -27,14 +27,15 @@ Invite-only — only emails on an allowlist can sign in. Admins manage the allow
 | Layer | Tech |
 |---|---|
 | Frontend | React 19, Vite 8, Tailwind v4, React Router v7 |
-| Backend | Flask 3, SQLAlchemy 2, Flask-Migrate (Alembic) |
+| Backend | Flask 3, SQLAlchemy 2, Flask-Migrate (Alembic), Flask-Limiter |
 | Database | SQLite |
-| Auth | Google OAuth via Authlib, sessions via Flask-Login |
-| Media | Local filesystem at `backend/media/`, served by Flask |
-| Email | Gmail SMTP with App Password |
+| Auth | Google and Apple OAuth via Authlib, email and password, sessions via Flask-Login |
+| Media | Local filesystem at `backend/media/`, served by nginx in production |
+| Email | Gmail SMTP with an App Password |
+| Push | Web Push (VAPID) via pywebpush |
 | Deployment | Docker Compose, nginx, gunicorn |
 | Hosting | Tailscale Funnel (public HTTPS, no port forwarding needed) |
-| PWA | vite-plugin-pwa + Workbox |
+| PWA | vite-plugin-pwa and Workbox |
 
 ---
 
@@ -43,16 +44,13 @@ Invite-only — only emails on an allowlist can sign in. Admins manage the allow
 ### Development
 
 ```
-Browser (localhost:5173)
+Browser (https://<your-ts-hostname>:5173)
    │
    ▼
 Vite dev server :5173       ← serves React, proxies /api/* and /media/*
    │
    ▼
-Flask dev server :5000      ← API + SQLite
-   │
-   ▼
-Google OAuth
+Flask dev server :5000      ← API + backend/dev.db
 ```
 
 ### Production
@@ -64,21 +62,31 @@ Internet
 https://<your-ts-hostname>
    │ HTTP :8080
    ▼
-nginx container             ← serves built React app, proxies /api/* and /media/*
+nginx container             ← serves the built React app, /media/*, proxies /api/*
    │ HTTP :5000 (internal Docker network)
    ▼
-Flask/gunicorn container    ← API + SQLite
+Flask/gunicorn container    ← API + backend/app.db (runs `flask db upgrade` on start)
 ```
+
+Dev and prod use **separate databases**. The dev stack runs against `backend/dev.db`. `backend/app.db` is production only and is bind-mounted into the backend container.
+
+### How sessions work
+
+A session is never stored. It is the set of one user's posts that share a `climbed_on` date. The only stored piece is `session_covers`, the optional cover pick.
+
+`posts.climbed_on` is the climber's **local** calendar day. The app sends the device's IANA timezone with each new post (and keeps `users.tz_name` in step with the device), and the server freezes the local day when the post is created. A late-evening climb stays on the day it happened, and a later timezone change never moves old sessions.
 
 ---
 
-## Local development setup
+## Local development
 
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 20+
+- tmux (for `dev.sh`)
 - A Google Cloud project with an OAuth Web Application client
+- Tailscale with HTTPS certificates, if you want to reach dev from a phone
 
 ### 1. Clone
 
@@ -87,87 +95,52 @@ git clone https://github.com/maplesyrup-0606/K2.git
 cd K2
 ```
 
-### 2. Google OAuth client
-
-1. Go to https://console.cloud.google.com/apis/credentials
-2. **Credentials → Create credentials → OAuth client ID → Web application**
-3. Authorized redirect URIs: `http://localhost:5173/api/auth/google/callback`
-4. Authorized JavaScript origins: `http://localhost:5173`
-5. Copy the Client ID and Client secret
-
-### 3. Backend
+### 2. Backend
 
 ```bash
 cd backend
-
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Create .env
-cat > .env <<EOF
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-FRONTEND_URL=http://localhost:5173
-OAUTH_REDIRECT_URI=http://localhost:5173/api/auth/google/callback
-GMAIL_APP_PASSWORD=your-gmail-app-password
-EOF
-
-flask db upgrade
 ```
 
-> **Gmail App Password:** enable 2-Step Verification on your Google account, then go to
-> [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and create an app password.
-> Update `mercurymcindoe@gmail.com` in `app.py` → `send_invite_email` to your own address if forking.
+Create `backend/.env` (see [Environment variables](#environment-variables)):
 
-Seed yourself into the invite allowlist:
-
-```bash
-python3 -c "
-from app import app, db
-from models import InviteAllowList
-with app.app_context():
-    db.session.add(InviteAllowList(email='you@gmail.com'))
-    db.session.commit()
-"
+```
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+FLASK_SECRET_KEY=...
+FRONTEND_URL=https://<your-ts-hostname>:5173
+OAUTH_REDIRECT_URI=https://<your-ts-hostname>:5173/api/auth/google/callback
+GMAIL_APP_PASSWORD=...
 ```
 
-### 4. Frontend
+Session cookies are marked Secure, so sign-in only works over HTTPS. Open the dev site at the exact origin in `FRONTEND_URL`, and start the login from that page. A mismatched origin fails with an `OAuthError`.
+
+### 3. Frontend
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 5. Run
+### 4. Run
 
 ```bash
-# Terminal 1 — backend
-cd backend && source .venv/bin/activate
-flask run --host 0.0.0.0 --port 5000
-
-# Terminal 2 — frontend
-cd frontend
-npm run dev
+./dev.sh          # tmux session: Flask on :5000 (left), Vite on :5173 (right)
+./dev.sh kill     # stop it
 ```
 
-Visit **http://localhost:5173**.
+`dev.sh` points Flask at `backend/dev.db` and runs `flask db upgrade` before starting, so the dev database is created and migrated on first run. Flask runs with `--debug`, so backend changes reload automatically.
 
-After your first login, promote yourself to admin:
+### Tests
 
 ```bash
-cd backend && source .venv/bin/activate
-python3 -c "
-from app import app, db
-from models import User
-with app.app_context():
-    u = User.query.filter_by(email='you@gmail.com').first()
-    u.is_admin = True
-    db.session.commit()
-"
+cd backend && .venv/bin/python -m pytest -q
+cd frontend && npm run lint && npm run build
 ```
+
+Backend tests run against a throwaway SQLite database, never against `app.db` or `dev.db`.
 
 ---
 
@@ -175,7 +148,7 @@ with app.app_context():
 
 ### Prerequisites
 
-- Docker + Docker Compose on the server
+- Docker and Docker Compose on the server
 - Tailscale installed and authenticated on the server
 - Funnel enabled in the [Tailscale admin ACL](https://login.tailscale.com/admin/acls):
   ```json
@@ -187,48 +160,41 @@ with app.app_context():
 
 ### First-time deploy
 
-**1. Create `backend/.env`:**
-
-```
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-FLASK_SECRET_KEY=...
-FRONTEND_URL=https://<your-ts-hostname>
-OAUTH_REDIRECT_URI=https://<your-ts-hostname>/api/auth/google/callback
-GMAIL_APP_PASSWORD=...
-```
-
-**2. Update `docker-compose.yml`** — replace `goon-pod.tail26570e.ts.net` with your Tailscale hostname in the `FRONTEND_URL` and `OAUTH_REDIRECT_URI` fields.
-
-**3. Run:**
-
-```bash
-./deploy.sh
-```
-
-`deploy.sh` builds both containers, starts them, and enables Tailscale Funnel on port 8080.
+1. Create `backend/.env` with the variables below. The same file is read by the dev server and the production container, so a secret added for development is already present in production.
+2. In `docker-compose.yml`, replace `goon-pod.tail26570e.ts.net` with your Tailscale hostname in `FRONTEND_URL` and `OAUTH_REDIRECT_URI`.
+3. Run `./deploy.sh`.
 
 ### Deploying updates
 
 ```bash
+./backup.sh      # always, before a deploy that carries a migration
 ./deploy.sh
 ```
 
-The SQLite database and uploaded media are mounted as volumes and survive rebuilds.
+`deploy.sh` rebuilds both containers from the working tree, restarts them, and re-enables Tailscale Funnel. The backend container runs `flask db upgrade` on start, so pending migrations apply as part of the deploy. The database and uploaded media are mounted as volumes and survive rebuilds.
+
+Because the service worker caches aggressively, users may need to clear the site's cache to see a new frontend.
+
+### Backups
+
+`./backup.sh` takes a hot-safe SQLite backup of `backend/app.db` plus a snapshot of `backend/media/` into `backups/`, keeping the latest 30. Schedule it with cron (for example every 6 hours), and run it by hand before any deploy that carries a migration.
 
 ### Environment variables
 
 | Variable | Description |
 |---|---|
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `APPLE_CLIENT_ID` | Apple Services ID (Sign in with Apple) — optional, button hides on the frontend if unset |
-| `APPLE_CLIENT_SECRET` | ES256 JWT client secret for Apple — generate via `backend/scripts/generate_apple_client_secret.py`, expires ~6 months, re-run manually to rotate |
-| `APPLE_OAUTH_REDIRECT_URI` | Apple OAuth callback URL |
-| `FLASK_SECRET_KEY` | Random secret for session signing, and for signing email-verification/password-reset tokens |
-| `FRONTEND_URL` | Public frontend URL |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client |
 | `OAUTH_REDIRECT_URI` | Google OAuth callback URL |
-| `GMAIL_APP_PASSWORD` | Gmail App Password for sending verification/password-reset/invite emails |
+| `APPLE_CLIENT_ID` | Apple Services ID. Optional. The Apple button stays hidden on the frontend unless `VITE_APPLE_ENABLED=true` |
+| `APPLE_CLIENT_SECRET` | ES256 JWT client secret for Apple. Generate it with `backend/scripts/generate_apple_client_secret.py`. It expires in about 6 months and must be re-generated to rotate |
+| `APPLE_OAUTH_REDIRECT_URI` | Apple OAuth callback URL |
+| `FLASK_SECRET_KEY` | Signs sessions and the email-verification and password-reset tokens |
+| `FRONTEND_URL` | Public frontend URL, also used for CORS |
+| `GMAIL_APP_PASSWORD` | Gmail App Password for verification, password-reset and invite emails |
+| `GMAIL_FROM` | Sender address for those emails |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web Push signing keys |
+| `VAPID_CLAIMS_EMAIL` | Contact address included in push requests |
+| `K2_DATABASE_URI` | Overrides the database location. Set by `dev.sh` to `backend/dev.db` |
 
 ---
 
@@ -237,32 +203,32 @@ The SQLite database and uploaded media are mounted as volumes and survive rebuil
 ```
 K2/
 ├── README.md
-├── deploy.sh                       Production deploy script
-├── docker-compose.yml              Orchestrates backend + frontend containers
-├── nginx.conf                      nginx config — static files + API proxy
+├── dev.sh                          Local dev stack (tmux: Flask + Vite) on dev.db
+├── deploy.sh                       Production deploy (rebuild, restart, Funnel)
+├── backup.sh                       Hot SQLite + media backup into backups/
+├── docker-compose.yml              Backend + frontend containers
+├── nginx.conf                      Static files, /media, and the /api proxy
 ├── frontend/
 │   ├── Dockerfile                  Multi-stage: builds React, serves via nginx
-│   ├── src/
-│   │   ├── api.js                  Fetch helpers (relative URLs, proxied in dev)
-│   │   ├── theme.js                Light/dark theme management
-│   │   ├── App.jsx                 Router + auth state
-│   │   ├── main.jsx
-│   │   ├── components/             PostCard, ProjectCard, PlanCard, …
-│   │   └── pages/                  Login, Home, Profile, Plans, Admin, Install, …
-│   ├── public/
-│   │   ├── favicon.png             App icon
-│   │   ├── icon-192.png            PWA icon
-│   │   ├── icon-512.png            PWA icon
-│   │   └── logo.svg                Horizontal logo lockup
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js              Vite + Tailwind + PWA + dev proxy
+│   ├── vite.config.js              Vite + Tailwind + PWA + dev proxy
+│   └── src/
+│       ├── App.jsx                 Router, auth state, timezone sync
+│       ├── api.js                  Fetch helpers (relative URLs, proxied in dev)
+│       ├── sw.js                   Service worker (precache + push)
+│       ├── components/             PostCard, SessionCards, PhotoWall, StatsPanel, …
+│       ├── lib/                    sessionFormat, push, draftStorage, imageAspect, …
+│       └── pages/                  Home, Profile, SessionPage, PostPage, Composer, Plans, …
 └── backend/
-    ├── Dockerfile                  Python + gunicorn
-    ├── app.py                      Routes + payload helpers
+    ├── Dockerfile                  Python + gunicorn; runs migrations on start
+    ├── app.py                      App factory: config, extensions, blueprints
+    ├── extensions.py               db, migrate, login manager, oauth
     ├── models.py                   SQLAlchemy models
+    ├── helpers.py                  Payload serializers and shared helpers
+    ├── routes_*.py                 One blueprint per resource: auth, users, posts,
+    │                               sessions, comments, plans, gyms, admin,
+    │                               notifications, push, invites, media, health
     ├── migrations/                 Alembic migration history
-    ├── requirements.txt
+    ├── tests/                      pytest suite
     └── .env                        Secrets (not committed)
 ```
 
@@ -275,24 +241,16 @@ K2/
 ```bash
 cd backend && source .venv/bin/activate
 flask db migrate -m "describe the change"
-flask db upgrade
+flask db upgrade            # development: run against dev.db
 ```
+
+Run `flask db upgrade` against `dev.db` as soon as you change a model. A running debug server reloads onto the new models immediately and fails until the database catches up.
 
 ### Inspect the database
 
 ```bash
-# From host
-sqlite3 backend/app.db ".tables"
-sqlite3 backend/app.db "SELECT id, email, is_admin FROM users;"
-
-# Inside the running container
-docker compose exec backend python3 -c "
-from app import app, db
-from models import User, InviteAllowList
-with app.app_context():
-    for u in User.query.all():
-        print(u.id, u.email, u.is_admin)
-"
+sqlite3 backend/dev.db ".tables"                 # development
+sqlite3 backend/app.db ".tables"                 # production (read-only habits only)
 ```
 
 ### View production logs
@@ -302,11 +260,12 @@ docker compose logs backend --tail=50
 docker compose logs frontend --tail=50
 ```
 
-### Reset everything
+### Reset the development database
 
 ```bash
 cd backend
-rm app.db
-rm -rf media
+rm dev.db
 flask db upgrade
 ```
+
+Never delete or reset `app.db`. It is the production database.

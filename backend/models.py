@@ -76,6 +76,11 @@ class User(db.Model, UserMixin):
 
     bio = db.Column(db.String(160), nullable=True)
 
+    # IANA name (e.g. 'America/Vancouver') reported by the user's browser.
+    # Decides which local calendar day a new post belongs to; falls back to
+    # helpers.DEFAULT_TIMEZONE while unset.
+    tz_name = db.Column(db.String(64), nullable=True)
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -121,39 +126,35 @@ class Post(db.Model):
     photo_path = db.Column(db.String(500), nullable=False)
     notes = db.Column(db.Text)
     hold_color = db.Column(db.String(7), nullable=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
+    # Local calendar day of the climb in the poster's timezone, frozen at
+    # creation so a session never shifts if the user later travels. One
+    # (user_id, climbed_on) pair == one session.
+    # The default (UTC date of climbed_at) only covers callers that skip the
+    # timezone step; create_post always passes the local day explicitly.
+    climbed_on = db.Column(
+        db.Date,
+        nullable=False,
+        index=True,
+        default=lambda ctx: ctx.get_current_parameters()['climbed_at'].date(),
+    )
     gym_id = db.Column(db.Integer, db.ForeignKey('gyms.id'))
 
     # relations
     user = db.relationship('User', backref='posts')
-    project = db.relationship('Project', backref='posts')
     gym = db.relationship('Gym')
 
-class Project(db.Model):
-    __tablename__ = 'projects'
+class SessionCover(db.Model):
+    """The cover photo a user picked for one of their sessions.
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey('users.id'),
-        nullable=False,
-        index=True,
-    )
-    title = db.Column(db.String(120), nullable=False)
-    photo_path = db.Column(db.String(500), nullable=False)
-    grade_scale = db.Column(GRADE_SCALE, nullable=False)
-    grade_value = db.Column(db.Integer, nullable=False)
-    status = db.Column(
-        db.Enum('active', 'sent', 'abandoned', name='project_status'),
-        nullable=False,
-        default='active',
-    )
-    created_at = db.Column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-    )
-    closed_at = db.Column(db.DateTime(timezone=True))
+    Sessions themselves are derived (all of a user's posts sharing a
+    climbed_on date); this table only stores the optional pick. No row means
+    the cover defaults to the session's highest-graded post.
+    """
+    __tablename__ = 'session_covers'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    session_date = db.Column(db.Date, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
 
 
 class Reaction(db.Model):

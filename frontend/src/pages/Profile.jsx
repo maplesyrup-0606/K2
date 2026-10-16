@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useParams, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import PostCard from '../components/PostCard'
 import StatsPanel from '../components/StatsPanel'
-import ProjectCard from '../components/ProjectCard'
+import { SessionTile } from '../components/SessionCards'
+import PhotoWall from '../components/PhotoWall'
 import FormField from '../components/FormField'
-import Composer from './Composer'
 import { useAsyncEffect } from '../lib/useAsyncEffect'
 import PageShell from '../components/PageShell'
 import FollowListModal from '../components/FollowListModal'
@@ -19,6 +18,12 @@ import {
 } from '../lib/push'
 
 const BIO_MAX_LEN = 160
+const POSTS_PAGE_SIZE = 30
+const PROFILE_TABS = [
+  ['sessions', 'Sessions'],
+  ['progress', 'Progress'],
+  ['all', 'All'],
+]
 
 function InstagramIcon({ className = '' }) {
   return (
@@ -51,15 +56,21 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
     navigate('/login')
   }
   const [profile, setProfile] = useState(null)
-  const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [nextOffset, setNextOffset] = useState(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [projects, setProjects] = useState([])
-  const [projectStatus, setProjectStatus] = useState('active')
-  const [loadingProjects, setLoadingProjects] = useState(false)
+  // The tab lives in the URL so coming back from a session lands on the same tab.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = PROFILE_TABS.some(([key]) => key === searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'sessions'
+  const [sessions, setSessions] = useState([])
+  const [sessionTotal, setSessionTotal] = useState(0)
+  const [sessionsNextOffset, setSessionsNextOffset] = useState(null)
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false)
+  // null until the All tab is first opened — thumbnails are only fetched on demand.
+  const [allPosts, setAllPosts] = useState(null)
+  const [postsNextOffset, setPostsNextOffset] = useState(null)
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
 
@@ -87,36 +98,38 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
   useAsyncEffect(async () => {
     setLoading(true)
     setNotFound(false)
+    setAllPosts(null)
+    setPostsNextOffset(null)
     const [
-      { ok: ok1, data: profileData },
-      { ok: ok2, data: postsData },
+      { ok: profileOk, data: profileData },
+      { ok: sessionsOk, data: sessionsData },
     ] = await Promise.all([
       api.getUserProfile(username),
-      api.listUserPosts(username),
+      api.listUserSessions(username),
     ])
     setLoading(false)
-    if (!ok1 || !ok2) {
+    if (!profileOk || !sessionsOk) {
       setNotFound(true)
       return
     }
     setProfile(profileData)
-    setPosts(postsData.posts)
-    setNextOffset(postsData.next_offset)
+    setSessions(sessionsData.sessions)
+    setSessionTotal(sessionsData.total)
+    setSessionsNextOffset(sessionsData.next_offset)
   }, [username])
 
-  // Fetch projects whenever username or selected status changes
   useEffect(() => {
+    if (tab !== 'all' || allPosts !== null) return
     let cancelled = false
-    setLoadingProjects(true)
-    api.listUserProjects(username, projectStatus).then(({ ok, data }) => {
+    api.listUserPosts(username, 0, POSTS_PAGE_SIZE).then(({ ok, data }) => {
       if (cancelled) return
-      setProjects(ok ? data.projects : [])
-      setLoadingProjects(false)
+      setAllPosts(ok ? data.posts : [])
+      setPostsNextOffset(ok ? data.next_offset : null)
     })
     return () => {
       cancelled = true
     }
-  }, [username, projectStatus])
+  }, [tab, allPosts, username])
 
   function openEdit() {
     setEditDisplayName(currentUser.display_name)
@@ -191,33 +204,28 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
     setProfile((prev) => ({ ...prev, ...data }))
   }
 
-  async function loadMore() {
-    if (nextOffset == null || loadingMore) return
-    setLoadingMore(true)
-    const { ok, data } = await api.listUserPosts(username, nextOffset)
-    setLoadingMore(false)
+  function selectTab(key) {
+    setSearchParams(key === 'sessions' ? {} : { tab: key }, { replace: true })
+  }
+
+  async function loadMoreSessions() {
+    if (sessionsNextOffset == null || loadingMoreSessions) return
+    setLoadingMoreSessions(true)
+    const { ok, data } = await api.listUserSessions(username, sessionsNextOffset)
+    setLoadingMoreSessions(false)
     if (!ok) return
-    setPosts((prev) => [...prev, ...data.posts])
-    setNextOffset(data.next_offset)
+    setSessions((prev) => [...prev, ...data.sessions])
+    setSessionsNextOffset(data.next_offset)
   }
 
-  async function handleDelete(postId) {
-    const { ok, data } = await api.deletePost(postId)
-    if (!ok) {
-      window.alert(data?.error || 'Failed to delete')
-      return
-    }
-    setPosts((prev) => prev.filter((p) => p.id !== postId))
-  }
-
-  function handleEdit(post) {
-    setEditing(post)
-  }
-
-  function handleUpdated(updatedPost) {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
-    )
+  async function loadMorePosts() {
+    if (postsNextOffset == null || loadingMorePosts) return
+    setLoadingMorePosts(true)
+    const { ok, data } = await api.listUserPosts(username, postsNextOffset, POSTS_PAGE_SIZE)
+    setLoadingMorePosts(false)
+    if (!ok) return
+    setAllPosts((prev) => [...prev, ...data.posts])
+    setPostsNextOffset(data.next_offset)
   }
 
   if (notFound) return <Navigate to="/" replace />
@@ -390,100 +398,99 @@ export default function Profile({ currentUser, onCurrentUserChange, onLogout }) 
               </div>
             )}
 
-            {/* Stats */}
-            <div className="mt-6">
-              <StatsPanel username={profile.username} />
+            {/* Tabs */}
+            <div role="tablist" aria-label="Profile sections" className="mt-6 flex border-b border-stone-200 dark:border-stone-800">
+              {PROFILE_TABS.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  id={`profile-tab-${key}`}
+                  aria-selected={tab === key}
+                  aria-controls="profile-tabpanel"
+                  onClick={() => selectTab(key)}
+                  className={`-mb-px flex-1 border-b-2 py-3 text-sm font-medium transition ${
+                    tab === key
+                      ? 'border-stone-900 text-stone-900 dark:border-stone-100 dark:text-stone-100'
+                      : 'border-transparent text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {/* Projects */}
-            <div className="mt-6">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                  Projects
-                </h2>
-                <div className="flex gap-1">
-                  {[
-                    ['active', 'Active'],
-                    ['sent', 'Sent'],
-                    ['abandoned', 'Abandoned'],
-                  ].map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setProjectStatus(key)}
-                      className={`px-2.5 py-1 rounded text-xs font-medium transition ${
-                        projectStatus === key
-                          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
-                          : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 dark:hover:bg-stone-300'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {loadingProjects ? (
-                <div className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
-                  Loading…
-                </div>
-              ) : projects.length === 0 ? (
-                <div className="text-xs text-stone-400 dark:text-stone-500 text-center py-4">
-                  No {projectStatus} projects.
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {projects.map((p) => (
-                    <ProjectCard key={p.id} project={p} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Post list */}
-            <div className="mt-6 space-y-6">
-              {posts.length === 0 ? (
-                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
-                  No posts yet.
-                </div>
-              ) : (
-                posts.map((p) => (
-                  <PostCard
-                    key={p.id}
-                    post={p}
-                    currentUserId={currentUser?.id}
-                    onDelete={handleDelete}
-                    onEdit={handleEdit}
-                    onReactionChange={handleUpdated}
-                    showActions={isOwnProfile}
-                  />
-                ))
+            <div
+              role="tabpanel"
+              id="profile-tabpanel"
+              aria-labelledby={`profile-tab-${tab}`}
+              className="mt-4"
+            >
+              {tab === 'sessions' && (
+                <>
+                  <div className="mb-3 flex items-baseline justify-between px-1">
+                    <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">One tile. One session.</h2>
+                    <span className="text-xs text-stone-400 dark:text-stone-500">
+                      {sessionTotal} {sessionTotal === 1 ? 'session' : 'sessions'}
+                    </span>
+                  </div>
+                  {sessions.length === 0 ? (
+                    <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
+                      {isOwnProfile ? 'No sessions yet. Tap + to log your first climb.' : 'No sessions yet.'}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {sessions.map((session) => (
+                        <SessionTile key={session.date} session={session} />
+                      ))}
+                    </div>
+                  )}
+                  {sessionsNextOffset != null && (
+                    <div className="pt-4 text-center">
+                      <button
+                        type="button"
+                        onClick={loadMoreSessions}
+                        disabled={loadingMoreSessions}
+                        className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                      >
+                        {loadingMoreSessions ? 'Loading…' : 'Load more'}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
 
-              {nextOffset != null && (
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
-                  >
-                    {loadingMore ? 'Loading…' : 'Load more'}
-                  </button>
-                </div>
+              {tab === 'progress' && <StatsPanel username={profile.username} />}
+
+              {tab === 'all' && (
+                <>
+                  {allPosts === null ? (
+                    <div className="py-8 text-center text-sm text-stone-400 dark:text-stone-500">Loading…</div>
+                  ) : allPosts.length === 0 ? (
+                    <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-6 text-center text-stone-500 dark:text-stone-400 text-sm">
+                      No climbs yet.
+                    </div>
+                  ) : (
+                    <PhotoWall posts={allPosts} />
+                  )}
+                  {postsNextOffset != null && (
+                    <div className="pt-4 text-center">
+                      <button
+                        type="button"
+                        onClick={loadMorePosts}
+                        disabled={loadingMorePosts}
+                        className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-50"
+                      >
+                        {loadingMorePosts ? 'Loading…' : 'Load more'}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>
         ) : null}
       </main>
-
-      {editing && (
-        <Composer
-          post={editing}
-          onClose={() => setEditing(null)}
-          onUpdated={handleUpdated}
-        />
-      )}
 
       {/* Edit profile sheet */}
       {editOpen && (

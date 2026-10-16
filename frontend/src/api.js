@@ -128,21 +128,18 @@ export const api = {
     request(`/api/users/${username}/posts?offset=${offset}&limit=${limit}`),
   getUserStats: (username, window = '30d') =>
     request(`/api/users/${username}/stats?window=${window}`),
-  listUserProjects: (username, status = 'active') =>
-    request(`/api/users/${username}/projects?status=${status}`),
-  getProject: (id) => request(`/api/projects/${id}`),
-  createProject: (formData) =>
-    request('/api/projects', {
-      method: 'POST',
-      body: formData,
+  listFeedSessions: (offset = 0, limit = 20, feed = 'all') =>
+    request(`/api/sessions?offset=${offset}&limit=${limit}&feed=${feed}`),
+  listUserSessions: (username, offset = 0, limit = 30) =>
+    request(`/api/users/${username}/sessions?offset=${offset}&limit=${limit}`),
+  getUserSession: (username, date) =>
+    request(`/api/users/${username}/sessions/${date}`),
+  // postId null clears the pick and falls back to the highest-graded climb.
+  setSessionCover: (date, postId) =>
+    request(`/api/users/me/sessions/${date}/cover`, {
+      method: 'PUT',
+      body: JSON.stringify({ post_id: postId }),
     }),
-  updateProject: (id, body) =>
-    request(`/api/projects/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    }),
-  deleteProject: (id) =>
-    request(`/api/projects/${id}`, { method: 'DELETE' }),
   listGyms: () => request('/api/gyms'),
   favoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'POST' }),
   unfavoriteGym: (id) => request(`/api/gyms/${id}/favorite`, { method: 'DELETE' }),
