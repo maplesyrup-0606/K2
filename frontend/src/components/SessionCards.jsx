@@ -76,10 +76,13 @@ export function SessionFeedCard({ session }) {
   const grade = gradeLabel(headline.grade_scale, headline.grade_value)
   const href = sessionPath(session)
   const hiddenCount = Math.max(0, session.climb_count - 1 - previews.length)
-  const tally = [
-    session.send_count > 0 && plural(session.send_count, 'send'),
-    session.flash_count > 0 && plural(session.flash_count, 'flash').replace('flashs', 'flashes'),
-  ].filter(Boolean).join(', ')
+  // Flashes are sends made first try, so they're a subset of the sends.
+  let tally = ''
+  if (session.send_count > 0) {
+    tally = plural(session.send_count, 'send')
+    if (session.flash_count === session.send_count) tally += ', all flashed'
+    else if (session.flash_count > 0) tally += ` (${session.flash_count} flashed)`
+  }
 
   return (
     <article className="overflow-hidden rounded-3xl bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
