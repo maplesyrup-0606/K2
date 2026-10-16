@@ -85,7 +85,7 @@ export function SessionFeedCard({ session }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-3xl bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+    <article className="isolate overflow-hidden rounded-3xl bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
       <div className="relative aspect-[4/5] bg-stone-200 dark:bg-stone-800">
         <img
           src={mediaUrl(session.cover.photo_path)}
@@ -103,7 +103,7 @@ export function SessionFeedCard({ session }) {
 
         <Link
           to={`/u/${user.username}`}
-          className="absolute left-3 top-3 z-10 flex max-w-[70%] items-center gap-2 rounded-full bg-black/40 py-1 pl-1 pr-3 text-white backdrop-blur-md transition hover:bg-black/55"
+          className="absolute left-3 top-3 flex max-w-[70%] items-center gap-2 rounded-full bg-black/40 py-1 pl-1 pr-3 text-white backdrop-blur-md transition hover:bg-black/55"
         >
           {user.avatar_url ? (
             <img src={user.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />

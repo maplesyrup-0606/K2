@@ -10,6 +10,7 @@ import SessionPage from './pages/SessionPage'
 import PostPage from './pages/PostPage'
 import Plans from './pages/Plans'
 import People from './pages/People'
+import Notifications from './pages/Notifications'
 import Admin from './pages/Admin'
 import Install from './pages/Install'
 import VerifyEmail from './pages/VerifyEmail'
@@ -124,6 +125,18 @@ export default function App() {
               <Navigate to="/onboarding" replace />
             ) : (
               <People />
+            )
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            !me ? (
+              <Navigate to="/login" replace />
+            ) : !me.is_onboarded ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <Notifications />
             )
           }
         />

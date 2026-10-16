@@ -189,7 +189,8 @@ export const api = {
     }),
   deletePlan: (planId) =>
     request(`/api/plans/${planId}`, { method: 'DELETE' }),
-  listNotifications: () => request('/api/notifications'),
+  listNotifications: (offset = 0, limit = 20) =>
+    request(`/api/notifications?offset=${offset}&limit=${limit}`),
   markNotificationsRead: (ids) =>
     request('/api/notifications/read', {
       method: 'POST',
